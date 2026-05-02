@@ -1,0 +1,131 @@
+<div class="parent-dashboard-page">
+  <section class="hero-card">
+    <div>
+      <span class="eyebrow">Parent Portal</span>
+      <h1>Welcome, {{ parentName }}</h1>
+      <p>
+        Monitor your child’s attendance performance, latest class status, and possible attendance
+        concerns in one simple dashboard.
+      </p>
+    </div>
+
+    <div class="hero-status">
+      <span class="status-label">Latest Status</span>
+      <strong [class]="mainChild.latestStatus.toLowerCase().replace(' ', '-')">
+        {{ mainChild.latestStatus }}
+      </strong>
+      <small>{{ mainChild.latestSubject }} • {{ mainChild.latestDate }}</small>
+    </div>
+  </section>
+
+  <section class="empty-card" *ngIf="!isLoading && linkedStudents.length === 0">
+    <h2>No linked student found</h2>
+    <p>Please contact the administrator to link your child to this parent account.</p>
+  </section>
+
+  <ng-container *ngIf="linkedStudents.length > 0">
+    <section class="selector-card" *ngIf="linkedStudents.length > 1">
+      <label for="studentSelect">Select Child</label>
+      <select
+        id="studentSelect"
+        name="studentSelect"
+        [(ngModel)]="selectedStudentId"
+        (change)="onStudentChange()"
+      >
+        <option *ngFor="let student of linkedStudents" [value]="student.id">
+          {{ student.fullName }} — {{ student.studentId }}
+        </option>
+      </select>
+    </section>
+
+    <section class="child-card">
+      <div class="child-avatar">
+        {{ mainChild.name.charAt(0) }}
+      </div>
+
+      <div class="child-info">
+        <h2>{{ mainChild.name }}</h2>
+        <p>{{ mainChild.studentId }} • {{ mainChild.program }}</p>
+        <span>{{ mainChild.yearLevel }} — {{ mainChild.section }}</span>
+      </div>
+
+      <div class="rate-box">
+        <strong>{{ mainChild.attendanceRate }}%</strong>
+        <span>Attendance Rate</span>
+      </div>
+    </section>
+
+    <section class="summary-grid">
+      <article class="summary-card present">
+        <span>Present</span>
+        <strong>{{ mainChild.present }}</strong>
+        <p>Recorded attendance</p>
+      </article>
+
+      <article class="summary-card late">
+        <span>Late</span>
+        <strong>{{ mainChild.late }}</strong>
+        <p>Late attendance records</p>
+      </article>
+
+      <article class="summary-card absent">
+        <span>Absent</span>
+        <strong>{{ mainChild.absent }}</strong>
+        <p>Missed class records</p>
+      </article>
+
+      <article class="summary-card excused">
+        <span>Excused</span>
+        <strong>{{ mainChild.excused }}</strong>
+        <p>Approved absence records</p>
+      </article>
+    </section>
+
+    <section class="insight-grid">
+      <article class="panel">
+        <div class="panel-header">
+          <h3>Attendance Overview</h3>
+          <span>Current Term</span>
+        </div>
+
+        <div class="progress-wrapper">
+          <div class="progress-label">
+            <span>Overall Attendance</span>
+            <strong>{{ mainChild.attendanceRate }}%</strong>
+          </div>
+
+          <div class="progress-track">
+            <div class="progress-fill" [style.width.%]="mainChild.attendanceRate"></div>
+          </div>
+        </div>
+
+        <p class="panel-note">
+          This summary helps parents quickly identify if the student is maintaining acceptable
+          attendance performance.
+        </p>
+      </article>
+
+      <article class="panel warning-panel">
+        <div class="panel-header">
+          <h3>Attendance Warnings</h3>
+          <span>{{ totalWarnings }} concern(s)</span>
+        </div>
+
+        <div class="warning-item" *ngIf="mainChild.absent > 0">
+          <strong>Absence Alert</strong>
+          <p>{{ mainChild.name }} has {{ mainChild.absent }} absence record(s).</p>
+        </div>
+
+        <div class="warning-item" *ngIf="mainChild.late > 0">
+          <strong>Late Alert</strong>
+          <p>{{ mainChild.name }} has {{ mainChild.late }} late attendance record(s).</p>
+        </div>
+
+        <div class="warning-item success" *ngIf="totalWarnings === 0">
+          <strong>No Attendance Warning</strong>
+          <p>Your child currently has no attendance concern.</p>
+        </div>
+      </article>
+    </section>
+  </ng-container>
+</div>

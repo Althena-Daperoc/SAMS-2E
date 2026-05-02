@@ -14,11 +14,20 @@
     "@angular/common": "^21.2.0",
     "@angular/compiler": "^21.2.0",
     "@angular/core": "^21.2.0",
+    "@angular/fire": "^20.0.1",
     "@angular/forms": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
+    "@emailjs/browser": "^4.4.1",
+    "apexcharts": "^5.10.6",
+    "firebase": "^12.12.1",
+    "ng-apexcharts": "^2.4.0",
+    "primeicons": "^7.0.0",
     "rxjs": "~7.8.0",
-    "tslib": "^2.3.0"
+    "sweetalert2": "^11.26.24",
+    "tslib": "^2.3.0",
+    "xlsx": "^0.18.5",
+    "zone.js": "^0.16.1"
   },
   "devDependencies": {
     "@angular/build": "^21.2.6",

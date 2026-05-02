@@ -1,0 +1,125 @@
+<div class="student-dashboard">
+  <section class="hero-card">
+    <div>
+      <span class="eyebrow">Student Portal</span>
+      <h1>Welcome back, {{ firstName }}</h1>
+      <p>Check your attendance status and scan your class session QR.</p>
+
+      <div class="student-tags">
+        <span>{{ studentProgram }}</span>
+        <span>{{ studentYearLevel }}</span>
+        <span>{{ studentSection }}</span>
+      </div>
+    </div>
+
+    <div class="hero-status" [class]="getStatusClass(latestRecord?.status)">
+      <span>Latest Status</span>
+      <strong>{{ latestStatusLabel }}</strong>
+      <small>{{ latestRecord ? formatDate(latestRecord.createdAt) : 'No attendance yet' }}</small>
+    </div>
+  </section>
+
+  <section class="quick-actions">
+    <button type="button" class="action-card primary" (click)="goTo('/student/scan-attendance')">
+      <span>Scan</span>
+      <strong>Scan Attendance</strong>
+    </button>
+
+    <button type="button" class="action-card" (click)="goTo('/student/my-attendance')">
+      <span>Records</span>
+      <strong>My Attendance</strong>
+    </button>
+
+    <button type="button" class="action-card" (click)="goTo('/student/profile')">
+      <span>Account</span>
+      <strong>Profile</strong>
+    </button>
+  </section>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span>Attendance Rate</span>
+      <strong>{{ attendanceRate }}%</strong>
+
+      <div class="progress-bar">
+        <div [style.width.%]="attendanceRate"></div>
+      </div>
+    </article>
+
+    <article class="summary-card present">
+      <span>Present</span>
+      <strong>{{ presentCount }}</strong>
+    </article>
+
+    <article class="summary-card late">
+      <span>Late</span>
+      <strong>{{ lateCount }}</strong>
+    </article>
+
+    <article class="summary-card absent">
+      <span>Absent</span>
+      <strong>{{ absentCount }}</strong>
+    </article>
+  </section>
+
+  <section class="content-grid">
+    <article class="recent-card">
+      <div class="section-header">
+        <div>
+          <h2>Recent Attendance</h2>
+          <p>Your latest class attendance records.</p>
+        </div>
+
+        <button type="button" (click)="goTo('/student/my-attendance')">View All</button>
+      </div>
+
+      <div class="loading-state" *ngIf="isLoading">Loading dashboard...</div>
+
+      <div class="empty-state" *ngIf="!isLoading && recentRecords.length === 0">
+        <div>▦</div>
+        <h3>No attendance yet</h3>
+        <p>Your attendance records will appear after scanning a session.</p>
+      </div>
+
+      <div class="record-list" *ngIf="!isLoading && recentRecords.length > 0">
+        <div class="record-item" *ngFor="let record of recentRecords">
+          <div>
+            <strong>
+              {{ record.subjectCode || 'Subject' }}
+              <span *ngIf="record.subjectName">— {{ record.subjectName }}</span>
+            </strong>
+            <p>{{ formatDate(record.createdAt) }} • {{ formatTime(record.createdAt) }}</p>
+          </div>
+
+          <span class="status-chip" [class]="getStatusClass(record.status)">
+            {{ formatStatus(record.status || 'N/A') }}
+          </span>
+        </div>
+      </div>
+    </article>
+
+    <article class="mini-profile-card">
+      <h2>Student Info</h2>
+
+      <div class="info-row">
+        <span>Name</span>
+        <strong>{{ student?.fullName || currentUser?.fullName || 'Student' }}</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Student ID</span>
+        <strong>{{ student?.studentId || currentUser?.username || 'Not set' }}</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Program</span>
+        <strong>{{ studentProgram }}</strong>
+      </div>
+
+      <div class="info-row">
+        <span>Section</span>
+        <strong>{{ studentSection }}</strong>
+      </div>
+    </article>
+  </section>
+</div>

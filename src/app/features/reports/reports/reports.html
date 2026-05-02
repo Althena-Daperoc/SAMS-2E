@@ -1,0 +1,320 @@
+<div class="reports-page" [class.faculty-mode]="isFaculty">
+  <section class="hero-card">
+    <div>
+      <span class="eyebrow">{{ isAdmin ? 'Admin Module' : 'Faculty Module' }}</span>
+      <h1>{{ pageTitle }}</h1>
+      <p>{{ pageSubtitle }}</p>
+    </div>
+
+    <div class="export-actions">
+      <button type="button" class="btn ghost" (click)="clearFilters()">Clear Filters</button>
+      <button type="button" class="btn soft" (click)="exportExcel()">Export Excel</button>
+      <button type="button" class="btn primary" (click)="exportPdf()">Print / Save PDF</button>
+    </div>
+  </section>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span>Total Records</span>
+      <strong>{{ totalRecords }}</strong>
+      <p>{{ isAdmin ? 'System-wide attendance logs' : 'Your attendance logs' }}</p>
+    </article>
+
+    <article class="summary-card present">
+      <span>Present</span>
+      <strong>{{ presentCount }}</strong>
+      <p>On-time records</p>
+    </article>
+
+    <article class="summary-card late">
+      <span>Late</span>
+      <strong>{{ lateCount }}</strong>
+      <p>Late attendance</p>
+    </article>
+
+    <article class="summary-card absent">
+      <span>Absent</span>
+      <strong>{{ absentCount }}</strong>
+      <p>Marked absent</p>
+    </article>
+
+    <article class="summary-card excused">
+      <span>Excused</span>
+      <strong>{{ excusedCount }}</strong>
+      <p>Approved excuse</p>
+    </article>
+  </section>
+
+  <section class="insight-grid">
+    <article class="rate-card">
+      <div>
+        <span>Attendance Rate</span>
+        <strong>{{ attendanceRate }}%</strong>
+        <p>Based only on filtered Firebase attendance records.</p>
+      </div>
+
+      <div class="rate-bar">
+        <div [style.width.%]="attendanceRate"></div>
+      </div>
+    </article>
+
+    <article class="mini-card">
+      <span>{{ isAdmin ? 'Total Sessions' : 'My Sessions' }}</span>
+      <strong>{{ totalSessions }}</strong>
+      <p>Recorded sessions</p>
+    </article>
+
+    <article class="mini-card">
+      <span>Active Sessions</span>
+      <strong>{{ activeSessions }}</strong>
+      <p>Currently active</p>
+    </article>
+  </section>
+
+  <section class="filter-card">
+    <div class="filter-header">
+      <div>
+        <h2>Report Filters</h2>
+        <p>
+          {{
+            isAdmin
+              ? 'Filter overall reports by date, faculty, section, subject, status, or keyword.'
+              : 'Filter your handled reports by date, section, subject, status, or keyword.'
+          }}
+        </p>
+      </div>
+    </div>
+
+    <div class="filter-grid">
+      <div class="form-group search">
+        <label>Search</label>
+        <input
+          type="text"
+          name="searchTerm"
+          [(ngModel)]="searchTerm"
+          (ngModelChange)="onFilterChange()"
+          placeholder="Search student, subject, section, method..."
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Status</label>
+        <select
+          name="selectedStatus"
+          [(ngModel)]="selectedStatus"
+          (ngModelChange)="onFilterChange()"
+        >
+          <option value="all">All Status</option>
+          <option value="present">Present</option>
+          <option value="late">Late</option>
+          <option value="absent">Absent</option>
+          <option value="excused">Excused</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Section</label>
+        <select
+          name="selectedSection"
+          [(ngModel)]="selectedSection"
+          (ngModelChange)="onFilterChange()"
+        >
+          <option value="all">All Sections</option>
+          <option *ngFor="let section of sectionOptions" [value]="section">
+            {{ section }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Subject</label>
+        <select
+          name="selectedSubject"
+          [(ngModel)]="selectedSubject"
+          (ngModelChange)="onFilterChange()"
+        >
+          <option value="all">All Subjects</option>
+          <option *ngFor="let subject of subjectOptions" [value]="subject">
+            {{ subject }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group" *ngIf="isAdmin">
+        <label>Faculty</label>
+        <select
+          name="selectedFaculty"
+          [(ngModel)]="selectedFaculty"
+          (ngModelChange)="onFilterChange()"
+        >
+          <option value="all">All Faculty</option>
+          <option
+            *ngFor="let teacher of facultyOptions"
+            [value]="teacher.facultyId || teacher.fullName"
+          >
+            {{ teacher.fullName }}
+          </option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Date From</label>
+        <input
+          type="date"
+          name="selectedDateFrom"
+          [(ngModel)]="selectedDateFrom"
+          (ngModelChange)="onFilterChange()"
+        />
+      </div>
+
+      <div class="form-group">
+        <label>Date To</label>
+        <input
+          type="date"
+          name="selectedDateTo"
+          [(ngModel)]="selectedDateTo"
+          (ngModelChange)="onFilterChange()"
+        />
+      </div>
+    </div>
+  </section>
+
+  <section class="charts-grid">
+    <article class="chart-card full">
+      <div class="chart-header">
+        <div>
+          <h2>Attendance Trend</h2>
+          <p>Column shows attendance record volume. Line shows attendance rate.</p>
+        </div>
+      </div>
+
+      <div class="chart-shell" *ngIf="!isLoading">
+        <apx-chart
+          [series]="mixedChartOptions.series!"
+          [chart]="mixedChartOptions.chart!"
+          [xaxis]="mixedChartOptions.xaxis!"
+          [yaxis]="mixedChartOptions.yaxis!"
+          [dataLabels]="mixedChartOptions.dataLabels!"
+          [stroke]="mixedChartOptions.stroke!"
+          [legend]="mixedChartOptions.legend!"
+          [tooltip]="mixedChartOptions.tooltip!"
+          [plotOptions]="mixedChartOptions.plotOptions!"
+          [grid]="mixedChartOptions.grid!"
+          [fill]="mixedChartOptions.fill!"
+        ></apx-chart>
+      </div>
+    </article>
+
+    <article class="chart-card">
+      <div class="chart-header">
+        <div>
+          <h2>Status Distribution</h2>
+          <p>Breakdown of present, late, absent, and excused records.</p>
+        </div>
+      </div>
+
+      <div class="chart-shell" *ngIf="!isLoading">
+        <apx-chart
+          [series]="statusDonutOptions.series!"
+          [chart]="statusDonutOptions.chart!"
+          [labels]="statusDonutOptions.labels!"
+          [legend]="statusDonutOptions.legend!"
+          [dataLabels]="statusDonutOptions.dataLabels!"
+          [tooltip]="statusDonutOptions.tooltip!"
+          [responsive]="statusDonutOptions.responsive!"
+        ></apx-chart>
+      </div>
+    </article>
+
+    <article class="chart-card">
+      <div class="chart-header">
+        <div>
+          <h2>{{ isAdmin ? 'Records by Section' : 'Records by Subject' }}</h2>
+          <p>
+            {{
+              isAdmin
+                ? 'Top sections based on filtered report records.'
+                : 'Your handled attendance records grouped by subject.'
+            }}
+          </p>
+        </div>
+      </div>
+
+      <div class="chart-shell" *ngIf="!isLoading">
+        <apx-chart
+          [series]="categoryBarOptions.series!"
+          [chart]="categoryBarOptions.chart!"
+          [xaxis]="categoryBarOptions.xaxis!"
+          [yaxis]="categoryBarOptions.yaxis!"
+          [dataLabels]="categoryBarOptions.dataLabels!"
+          [plotOptions]="categoryBarOptions.plotOptions!"
+          [grid]="categoryBarOptions.grid!"
+          [tooltip]="categoryBarOptions.tooltip!"
+        ></apx-chart>
+      </div>
+    </article>
+  </section>
+
+  <section class="table-card">
+    <div class="table-header">
+      <div>
+        <h2>{{ isAdmin ? 'System Attendance Records' : 'My Student Attendance Records' }}</h2>
+        <p>{{ totalRecords }} record(s) based on current filters.</p>
+      </div>
+    </div>
+
+    <div class="loading-state" *ngIf="isLoading">Loading report data...</div>
+
+    <div class="empty-state" *ngIf="!isLoading && reportRows.length === 0">
+      <div class="empty-icon">▦</div>
+      <h3>No attendance records found</h3>
+      <p>
+        {{
+          isAdmin
+            ? 'System-wide records will appear here after attendance sessions are used.'
+            : 'Your handled student records will appear here after your sessions receive scans.'
+        }}
+      </p>
+    </div>
+
+    <div class="table-wrap" *ngIf="!isLoading && reportRows.length > 0">
+      <table>
+        <thead>
+          <tr>
+            <th>No.</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Student ID</th>
+            <th>Student Name</th>
+            <th *ngIf="isAdmin">Faculty</th>
+            <th>Subject</th>
+            <th>Section</th>
+            <th>Status</th>
+            <th>Method</th>
+            <th>Remarks</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let row of reportRows; let i = index">
+            <td>{{ i + 1 }}</td>
+            <td>{{ row.date }}</td>
+            <td>{{ row.time }}</td>
+            <td>{{ row.studentId }}</td>
+            <td>{{ row.studentName }}</td>
+            <td *ngIf="isAdmin">{{ row.facultyName }}</td>
+            <td>{{ row.subject }}</td>
+            <td>{{ row.section }}</td>
+            <td>
+              <span class="status-chip" [class]="getStatusClass(row.status)">
+                {{ row.status }}
+              </span>
+            </td>
+            <td>{{ row.method }}</td>
+            <td>{{ row.remarks }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

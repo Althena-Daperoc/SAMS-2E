@@ -1,0 +1,383 @@
+<div class="assignments-page">
+  <section class="page-hero">
+    <div>
+      <span class="eyebrow">Academic Setup</span>
+      <h1>Assignments</h1>
+      <p>
+        Manage teaching assignments by connecting faculty, subjects, sections, school year, and
+        semester. This module becomes the bridge for teacher attendance sessions.
+      </p>
+    </div>
+
+    <div class="hero-actions">
+      <button type="button" class="btn ghost" (click)="goBack()">Back</button>
+
+      <label class="btn soft">
+        Import Excel
+        <input type="file" accept=".xlsx,.xls" hidden (change)="onExcelSelected($event)" />
+      </label>
+
+      <button type="button" class="btn primary" (click)="openAddModal()">Add Assignment</button>
+    </div>
+  </section>
+
+  <section class="catalog-row">
+    <article class="catalog-card active">
+      <span>Main Catalog</span>
+      <h3>Teaching Assignments</h3>
+      <p>Faculty + Subject + Section</p>
+    </article>
+
+    <article class="catalog-card">
+      <span>Connected Records</span>
+      <h3>Subjects</h3>
+      <p>Uses active subject records.</p>
+    </article>
+
+    <article class="catalog-card">
+      <span>Connected Records</span>
+      <h3>Sections</h3>
+      <p>Uses active section records.</p>
+    </article>
+  </section>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span>Active</span>
+      <strong>{{ activeAssignments.length }}</strong>
+    </article>
+
+    <article class="summary-card">
+      <span>Archived</span>
+      <strong>{{ archivedAssignments.length }}</strong>
+    </article>
+
+    <article class="summary-card">
+      <span>Total</span>
+      <strong>{{ assignments.length }}</strong>
+    </article>
+  </section>
+
+  <section class="content-card">
+    <div class="content-header">
+      <div>
+        <h2>{{ activeTab === 'active' ? 'Active Assignments' : 'Archived Assignments' }}</h2>
+        <p>
+          {{
+            activeTab === 'active'
+              ? 'Current teaching loads available for attendance session creation.'
+              : 'Archived assignments can be restored or permanently deleted.'
+          }}
+        </p>
+      </div>
+
+      <div class="tabs">
+        <button type="button" [class.active]="activeTab === 'active'" (click)="setTab('active')">
+          Active
+        </button>
+
+        <button type="button" [class.active]="activeTab === 'archive'" (click)="setTab('archive')">
+          Archive
+        </button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <span>⌕</span>
+        <input
+          type="text"
+          name="searchTerm"
+          [(ngModel)]="searchTerm"
+          placeholder="Search faculty, subject, section, school year, semester..."
+        />
+
+        <button *ngIf="searchTerm" type="button" (click)="clearSearch()">×</button>
+      </div>
+    </div>
+
+    <div
+      class="setup-warning"
+      *ngIf="
+        !isLoading &&
+        (activeFacultyOptions.length === 0 ||
+          activeSubjectOptions.length === 0 ||
+          activeSectionOptions.length === 0)
+      "
+    >
+      <strong>Setup required:</strong>
+      Add active faculty, subjects, and sections first before creating assignments.
+    </div>
+
+    <div class="loading-state" *ngIf="isLoading">Loading assignments...</div>
+
+    <div class="empty-state" *ngIf="!isLoading && visibleAssignments.length === 0">
+      <div class="empty-icon">▦</div>
+      <h3>{{ activeTab === 'active' ? 'No assignments yet' : 'Archive is empty' }}</h3>
+      <p>
+        {{
+          activeTab === 'active'
+            ? 'Create the first teaching assignment to connect faculty, subject, and section.'
+            : 'Archived assignments will appear here.'
+        }}
+      </p>
+
+      <button
+        *ngIf="activeTab === 'active'"
+        type="button"
+        class="btn primary"
+        (click)="openAddModal()"
+      >
+        Add Assignment
+      </button>
+    </div>
+
+    <div
+      class="empty-state"
+      *ngIf="!isLoading && visibleAssignments.length > 0 && filteredAssignments.length === 0"
+    >
+      <div class="empty-icon">⌕</div>
+      <h3>No matching assignment</h3>
+      <p>No records matched your search.</p>
+      <button type="button" class="btn ghost" (click)="clearSearch()">Clear Search</button>
+    </div>
+
+    <div class="assignment-grid" *ngIf="!isLoading && filteredAssignments.length > 0">
+      <article class="assignment-card" *ngFor="let assignment of filteredAssignments">
+        <div class="assignment-top">
+          <span class="assignment-code">{{ assignment.assignmentCode }}</span>
+
+          <button
+            type="button"
+            class="status-chip"
+            [class.inactive]="assignment.status === 'inactive'"
+            [disabled]="activeTab === 'archive'"
+            (click)="toggleAssignmentStatus(assignment)"
+          >
+            {{ assignment.status }}
+          </button>
+        </div>
+
+        <div class="assignment-main">
+          <h3>{{ assignment.subjectCode }} — {{ assignment.subjectName }}</h3>
+          <p>
+            {{ assignment.sectionCode }} • {{ formatProgram(assignment.program) }} •
+            {{ assignment.yearLevel }}
+          </p>
+        </div>
+
+        <div class="details-grid">
+          <div>
+            <span>Faculty</span>
+            <strong>{{ assignment.facultyName }}</strong>
+          </div>
+
+          <div>
+            <span>Faculty ID</span>
+            <strong>{{ assignment.facultyEmployeeId }}</strong>
+          </div>
+
+          <div>
+            <span>School Year</span>
+            <strong>{{ assignment.schoolYear }}</strong>
+          </div>
+
+          <div>
+            <span>Semester</span>
+            <strong>{{ assignment.semester }}</strong>
+          </div>
+        </div>
+
+        <div class="card-actions" *ngIf="activeTab === 'active'">
+          <button type="button" class="btn small ghost" (click)="openEditModal(assignment)">
+            Edit
+          </button>
+
+          <button type="button" class="btn small warning" (click)="archiveAssignment(assignment)">
+            Archive
+          </button>
+        </div>
+
+        <div class="card-actions" *ngIf="activeTab === 'archive'">
+          <button type="button" class="btn small success" (click)="restoreAssignment(assignment)">
+            Restore
+          </button>
+
+          <button
+            type="button"
+            class="btn small danger"
+            (click)="deleteAssignmentPermanently(assignment)"
+          >
+            Delete
+          </button>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>
+
+<div class="modal-backdrop" *ngIf="showFormModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <h2>{{ isEditing ? 'Edit Teaching Assignment' : 'Add Teaching Assignment' }}</h2>
+        <p>
+          {{
+            isEditing
+              ? 'Update this teaching assignment.'
+              : 'Assign a faculty member to a subject and section.'
+          }}
+        </p>
+      </div>
+
+      <button type="button" class="close-btn" (click)="closeFormModal()">×</button>
+    </div>
+
+    <form (ngSubmit)="saveAssignment()">
+      <div class="form-grid">
+        <div class="form-group wide">
+          <label for="facultyId">Faculty</label>
+          <select id="facultyId" name="facultyId" [(ngModel)]="form.facultyId" required>
+            <option value="" disabled>Select faculty</option>
+            <option *ngFor="let faculty of activeFacultyOptions" [value]="faculty.id">
+              {{ faculty.fullName }} — {{ faculty.facultyId }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group wide">
+          <label for="subjectId">Subject</label>
+          <select id="subjectId" name="subjectId" [(ngModel)]="form.subjectId" required>
+            <option value="" disabled>Select subject</option>
+            <option *ngFor="let subject of activeSubjectOptions" [value]="subject.id">
+              {{ subject.subjectCode }} — {{ subject.subjectName }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group wide">
+          <label for="sectionId">Section</label>
+          <select id="sectionId" name="sectionId" [(ngModel)]="form.sectionId" required>
+            <option value="" disabled>Select section</option>
+            <option *ngFor="let section of activeSectionOptions" [value]="section.id">
+              {{ section.sectionCode }} — {{ formatProgram(section.program) }} •
+              {{ section.yearLevel }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="schoolYear">School Year</label>
+          <input
+            id="schoolYear"
+            type="text"
+            name="schoolYear"
+            [(ngModel)]="form.schoolYear"
+            placeholder="2025-2026"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="semester">Semester</label>
+          <select id="semester" name="semester" [(ngModel)]="form.semester" required>
+            <option value="1st Semester">1st Semester</option>
+            <option value="2nd Semester">2nd Semester</option>
+            <option value="Summer">Summer</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="status">Status</label>
+          <select id="status" name="status" [(ngModel)]="form.status" required>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="btn ghost" (click)="closeFormModal()" [disabled]="isSaving">
+          Cancel
+        </button>
+
+        <button type="submit" class="btn primary" [disabled]="isSaving">
+          {{ isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Save Assignment' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showImportModal">
+  <div class="modal-card import-modal">
+    <div class="modal-header">
+      <div>
+        <h2>Import Assignments</h2>
+        <p>{{ importFileName }}</p>
+      </div>
+
+      <button type="button" class="close-btn" (click)="closeImportModal()">×</button>
+    </div>
+
+    <div class="import-summary">
+      <div>
+        <span>Valid Rows</span>
+        <strong>{{ validImportCount }}</strong>
+      </div>
+
+      <div>
+        <span>Invalid Rows</span>
+        <strong>{{ invalidImportCount }}</strong>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Row</th>
+            <th>Faculty</th>
+            <th>Subject</th>
+            <th>Section</th>
+            <th>SY</th>
+            <th>Semester</th>
+            <th>Status</th>
+            <th>Validation</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let item of importPreview" [class.invalid]="!item.isValid">
+            <td>{{ item.rowNumber }}</td>
+            <td>{{ item.facultyEmployeeId }}</td>
+            <td>{{ item.subjectCode }}</td>
+            <td>{{ item.sectionCode }}</td>
+            <td>{{ item.schoolYear }}</td>
+            <td>{{ item.semester }}</td>
+            <td>{{ item.status }}</td>
+            <td>
+              <span *ngIf="item.isValid" class="valid-text">Ready</span>
+              <span *ngIf="!item.isValid" class="error-text">{{ item.errors.join(' ') }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" (click)="closeImportModal()" [disabled]="isImporting">
+        Cancel
+      </button>
+
+      <button
+        type="button"
+        class="btn primary"
+        (click)="confirmImport()"
+        [disabled]="isImporting || invalidImportCount > 0"
+      >
+        {{ isImporting ? 'Importing...' : 'Confirm Import' }}
+      </button>
+    </div>
+  </div>
+</div>

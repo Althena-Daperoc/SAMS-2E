@@ -1,0 +1,393 @@
+<div class="faculty-page">
+  <div class="page-header">
+    <div>
+      <span class="eyebrow">Faculty Records</span>
+      <h2>Faculty</h2>
+      <p>Manage instructor records, Excel imports, archived data, and faculty account readiness.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="ghost-btn" type="button" (click)="goBack()">← Back</button>
+
+      <label class="import-btn">
+        Import Excel
+        <input type="file" accept=".xlsx,.xls" hidden (change)="onExcelSelected($event)" />
+      </label>
+
+      <button class="add-btn" type="button" (click)="openAddModal()">
+        <span>+</span>
+        Add Faculty
+      </button>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <p>Total Active Faculty</p>
+      <h3>{{ activeFaculty.length }}</h3>
+    </div>
+
+    <div class="summary-card">
+      <p>Archived Faculty</p>
+      <h3>{{ archivedFaculty.length }}</h3>
+    </div>
+
+    <div class="summary-card">
+      <p>Total Faculty Records</p>
+      <h3>{{ totalFacultyRecords }}</h3>
+    </div>
+  </div>
+
+  <div class="faculty-card">
+    <div class="card-header">
+      <div>
+        <h3>{{ activeTab === 'active' ? 'Active Faculty' : 'Archived Faculty' }}</h3>
+        <p>
+          {{
+            activeTab === 'active'
+              ? 'Faculty records currently available for teaching assignments and attendance sessions.'
+              : 'Archived faculty records can be restored or permanently deleted.'
+          }}
+        </p>
+      </div>
+
+      <div class="tab-buttons">
+        <button type="button" [class.active]="activeTab === 'active'" (click)="setTab('active')">
+          Active
+        </button>
+
+        <button type="button" [class.active]="activeTab === 'archive'" (click)="setTab('archive')">
+          Archive
+        </button>
+      </div>
+    </div>
+
+    <div class="faculty-tools">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+
+        <input
+          type="text"
+          name="facultySearch"
+          [(ngModel)]="searchTerm"
+          placeholder="Search by faculty ID, name, email, department, role, or status..."
+        />
+
+        <button
+          *ngIf="searchTerm"
+          type="button"
+          class="clear-search-btn"
+          (click)="clearSearch()"
+          aria-label="Clear search"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+
+    <div class="format-note" *ngIf="activeTab === 'active'">
+      <strong>Excel columns:</strong>
+      Faculty ID, Full Name, Email, Department, Role, Status
+    </div>
+
+    <div class="loading-state" *ngIf="isLoading">Loading faculty records...</div>
+
+    <div class="empty-state" *ngIf="!isLoading && visibleFaculty.length === 0">
+      <div class="empty-icon">👨‍🏫</div>
+
+      <h3>{{ activeTab === 'active' ? 'No active faculty yet' : 'Archive is empty' }}</h3>
+
+      <p>
+        {{
+          activeTab === 'active'
+            ? 'Add faculty manually or import an Excel file to start building instructor records.'
+            : 'Archived faculty records will appear here when moved out of the active list.'
+        }}
+      </p>
+
+      <button
+        *ngIf="activeTab === 'active'"
+        type="button"
+        class="empty-btn"
+        (click)="openAddModal()"
+      >
+        Add Faculty
+      </button>
+    </div>
+
+    <div
+      class="empty-state"
+      *ngIf="!isLoading && visibleFaculty.length > 0 && filteredFaculty.length === 0"
+    >
+      <div class="empty-icon">🔎</div>
+
+      <h3>No matching faculty found</h3>
+
+      <p>
+        No faculty record matches "<strong>{{ searchTerm }}</strong
+        >".
+      </p>
+
+      <button type="button" class="empty-btn" (click)="clearSearch()">Clear Search</button>
+    </div>
+
+    <div class="table-wrapper" *ngIf="!isLoading && filteredFaculty.length > 0">
+      <table class="faculty-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Faculty ID</th>
+            <th>Full Name</th>
+            <th>Email</th>
+            <th>Department</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let faculty of filteredFaculty; let i = index">
+            <td>{{ i + 1 }}</td>
+
+            <td>
+              <span class="faculty-id">{{ faculty.facultyId }}</span>
+            </td>
+
+            <td>
+              <div class="faculty-name">
+                <div class="avatar">
+                  {{ faculty.fullName.charAt(0) || '?' }}
+                </div>
+                <span>{{ faculty.fullName }}</span>
+              </div>
+            </td>
+
+            <td>{{ faculty.email }}</td>
+            <td>{{ faculty.department }}</td>
+            <td>{{ formatRole(faculty.role) }}</td>
+
+            <td>
+              <button
+                type="button"
+                class="status-badge"
+                [class.inactive]="faculty.status === 'inactive'"
+                [disabled]="activeTab === 'archive'"
+                (click)="toggleFacultyStatus(faculty)"
+              >
+                {{ faculty.status || 'active' }}
+              </button>
+            </td>
+
+            <td>
+              <div class="action-buttons" *ngIf="activeTab === 'active'">
+                <button type="button" class="edit-btn" (click)="openEditModal(faculty)">
+                  Edit
+                </button>
+
+                <button type="button" class="archive-btn" (click)="archiveFaculty(faculty)">
+                  Archive
+                </button>
+              </div>
+
+              <div class="action-buttons" *ngIf="activeTab === 'archive'">
+                <button type="button" class="restore-btn" (click)="restoreFaculty(faculty)">
+                  Restore
+                </button>
+
+                <button
+                  type="button"
+                  class="delete-btn"
+                  (click)="deleteFacultyPermanently(faculty)"
+                >
+                  Delete
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showFormModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <h3>{{ isEditing ? 'Edit Faculty' : 'Add Faculty' }}</h3>
+        <p>
+          {{
+            isEditing
+              ? 'Update this faculty record.'
+              : 'Register a new faculty member into the system.'
+          }}
+        </p>
+      </div>
+
+      <button type="button" class="close-btn" (click)="closeFormModal()">×</button>
+    </div>
+
+    <form (ngSubmit)="saveFaculty()">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="facultyId">Faculty ID</label>
+          <input
+            id="facultyId"
+            type="text"
+            name="facultyId"
+            [(ngModel)]="form.facultyId"
+            placeholder="Example: FAC-001"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input
+            id="fullName"
+            type="text"
+            name="fullName"
+            [(ngModel)]="form.fullName"
+            placeholder="Enter full name"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input
+            id="email"
+            type="email"
+            name="email"
+            [(ngModel)]="form.email"
+            placeholder="example@sams.edu.ph"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="department">Department</label>
+          <input
+            id="department"
+            type="text"
+            name="department"
+            [(ngModel)]="form.department"
+            placeholder="Example: IT"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="role">Role</label>
+          <select id="role" name="role" [(ngModel)]="form.role" required>
+            <option value="instructor">Instructor</option>
+            <option value="assistant_professor">Assistant Professor</option>
+            <option value="associate_professor">Associate Professor</option>
+            <option value="professor">Professor</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="status">Status</label>
+          <select id="status" name="status" [(ngModel)]="form.status" required>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="cancel-btn" (click)="closeFormModal()">Cancel</button>
+
+        <button type="submit" class="save-btn" [disabled]="isSaving">
+          {{ isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Save Faculty' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showImportModal">
+  <div class="modal-card import-modal">
+    <div class="modal-header">
+      <div>
+        <h3>Import Faculty from Excel</h3>
+        <p>{{ importFileName || 'Review imported faculty records before saving.' }}</p>
+      </div>
+
+      <button type="button" class="close-btn" (click)="closeImportModal()">×</button>
+    </div>
+
+    <div class="import-summary">
+      <div>
+        <span>Valid Records</span>
+        <strong>{{ validImportCount }}</strong>
+      </div>
+
+      <div>
+        <span>Needs Review</span>
+        <strong>{{ invalidImportCount }}</strong>
+      </div>
+
+      <div>
+        <span>Total Rows</span>
+        <strong>{{ importPreview.length }}</strong>
+      </div>
+    </div>
+
+    <div class="format-note">
+      Required columns:
+      <strong>Faculty ID, Full Name, Email, Department, Role</strong>. Optional column:
+      <strong>Status</strong>.
+    </div>
+
+    <div class="table-wrapper import-preview-table" *ngIf="importPreview.length > 0">
+      <table class="faculty-table">
+        <thead>
+          <tr>
+            <th>Row</th>
+            <th>Faculty ID</th>
+            <th>Full Name</th>
+            <th>Email</th>
+            <th>Department</th>
+            <th>Role</th>
+            <th>Status</th>
+            <th>Validation</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let faculty of importPreview" [class.invalid-row]="!faculty.isValid">
+            <td>{{ faculty.rowNumber }}</td>
+            <td>{{ faculty.facultyId || '—' }}</td>
+            <td>{{ faculty.fullName || '—' }}</td>
+            <td>{{ faculty.email || '—' }}</td>
+            <td>{{ faculty.department || '—' }}</td>
+            <td>{{ formatRole(faculty.role) }}</td>
+            <td>{{ faculty.status }}</td>
+            <td>
+              <span class="valid-badge" *ngIf="faculty.isValid">Ready</span>
+              <span class="error-text" *ngIf="!faculty.isValid">
+                {{ faculty.errors.join(', ') }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="cancel-btn" (click)="closeImportModal()">Cancel</button>
+
+      <button
+        type="button"
+        class="save-btn"
+        [disabled]="isImporting || validImportCount === 0"
+        (click)="confirmImport()"
+      >
+        {{ isImporting ? 'Importing...' : 'Confirm Import' }}
+      </button>
+    </div>
+  </div>
+</div>

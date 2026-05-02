@@ -1,0 +1,317 @@
+<div class="sections-page">
+  <div class="hero-card">
+    <div>
+      <span class="eyebrow">Academic Structure</span>
+      <h2>Sections</h2>
+      <p>
+        Organize students by program, year level, and section for attendance sessions and
+        assignments.
+      </p>
+    </div>
+
+    <div class="hero-actions">
+      <button type="button" class="secondary-btn" (click)="goBack()">← Back</button>
+
+      <label class="primary-btn soft">
+        Import Excel
+        <input type="file" accept=".xlsx,.xls" hidden (change)="onExcelSelected($event)" />
+      </label>
+
+      <button type="button" class="primary-btn" (click)="openAddModal()">+ Add Section</button>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <span>Active Sections</span>
+      <strong>{{ activeSections.length }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Archived Sections</span>
+      <strong>{{ archivedSections.length }}</strong>
+    </div>
+
+    <div class="stat-card">
+      <span>Total Records</span>
+      <strong>{{ totalSectionRecords }}</strong>
+    </div>
+  </div>
+
+  <div class="content-card">
+    <div class="content-header">
+      <div>
+        <h3>{{ activeTab === 'active' ? 'Active Sections' : 'Archived Sections' }}</h3>
+        <p>
+          {{
+            activeTab === 'active'
+              ? 'Sections currently available for academic setup and attendance grouping.'
+              : 'Archived sections can be restored or permanently deleted.'
+          }}
+        </p>
+      </div>
+
+      <div class="pill-tabs">
+        <button type="button" [class.active]="activeTab === 'active'" (click)="setTab('active')">
+          Active
+        </button>
+
+        <button type="button" [class.active]="activeTab === 'archive'" (click)="setTab('archive')">
+          Archive
+        </button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <span>⌕</span>
+        <input
+          type="text"
+          name="sectionSearch"
+          [(ngModel)]="searchTerm"
+          placeholder="Search section code, program, year level, section name, or status..."
+        />
+
+        <button *ngIf="searchTerm" type="button" (click)="clearSearch()">×</button>
+      </div>
+
+      <div class="excel-hint" *ngIf="activeTab === 'active'">
+        Excel columns: <strong>Program, Year Level, Section Name, Status</strong>
+      </div>
+    </div>
+
+    <div class="loading-state" *ngIf="isLoading">Loading sections...</div>
+
+    <div class="empty-state" *ngIf="!isLoading && visibleSections.length === 0">
+      <div class="empty-icon">▦</div>
+      <h3>{{ activeTab === 'active' ? 'No sections yet' : 'Archive is empty' }}</h3>
+      <p>
+        {{
+          activeTab === 'active'
+            ? 'Create your first section manually or import a section list from Excel.'
+            : 'Archived sections will appear here.'
+        }}
+      </p>
+
+      <button
+        *ngIf="activeTab === 'active'"
+        type="button"
+        class="primary-btn"
+        (click)="openAddModal()"
+      >
+        Add Section
+      </button>
+    </div>
+
+    <div
+      class="empty-state"
+      *ngIf="!isLoading && visibleSections.length > 0 && filteredSections.length === 0"
+    >
+      <div class="empty-icon">⌕</div>
+      <h3>No matching section found</h3>
+      <p>
+        No section record matches "<strong>{{ searchTerm }}</strong
+        >".
+      </p>
+      <button type="button" class="secondary-btn" (click)="clearSearch()">Clear Search</button>
+    </div>
+
+    <div class="section-grid" *ngIf="!isLoading && filteredSections.length > 0">
+      <div class="section-card" *ngFor="let section of filteredSections">
+        <div class="section-main">
+          <span class="section-code">{{ section.sectionCode }}</span>
+          <h4>{{ formatProgram(section.program) }}</h4>
+          <p>{{ section.yearLevel }} • Section {{ section.sectionName }}</p>
+        </div>
+
+        <div class="section-meta">
+          <button
+            type="button"
+            class="status-chip"
+            [class.inactive]="section.status === 'inactive'"
+            [disabled]="activeTab === 'archive'"
+            (click)="toggleSectionStatus(section)"
+          >
+            {{ section.status || 'active' }}
+          </button>
+        </div>
+
+        <div class="section-actions" *ngIf="activeTab === 'active'">
+          <button type="button" class="light-btn" (click)="openEditModal(section)">Edit</button>
+          <button type="button" class="warning-btn" (click)="archiveSection(section)">
+            Archive
+          </button>
+        </div>
+
+        <div class="section-actions" *ngIf="activeTab === 'archive'">
+          <button type="button" class="success-btn" (click)="restoreSection(section)">
+            Restore
+          </button>
+          <button type="button" class="danger-btn" (click)="deleteSectionPermanently(section)">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showFormModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <h3>{{ isEditing ? 'Edit Section' : 'Add Section' }}</h3>
+        <p>
+          {{
+            isEditing
+              ? 'Update program, year level, and section details.'
+              : 'Create a section under a specific program and year level.'
+          }}
+        </p>
+      </div>
+
+      <button type="button" class="close-btn" (click)="closeFormModal()">×</button>
+    </div>
+
+    <form (ngSubmit)="saveSection()">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="program">Program</label>
+          <select id="program" name="program" [(ngModel)]="form.program" required>
+            <option value="IT">Information Technology (IT)</option>
+            <option value="EMT">Electro-Mechanical Technology (EMT)</option>
+            <option value="TCM">Technology Communication Management (TCM)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="yearLevel">Year Level</label>
+          <select id="yearLevel" name="yearLevel" [(ngModel)]="form.yearLevel" required>
+            <option value="" disabled>Select year level</option>
+            <option value="1st Year">1st Year</option>
+            <option value="2nd Year">2nd Year</option>
+            <option value="3rd Year">3rd Year</option>
+            <option value="4th Year">4th Year</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="sectionName">Section Name</label>
+          <input
+            id="sectionName"
+            type="text"
+            name="sectionName"
+            [(ngModel)]="form.sectionName"
+            placeholder="Example: A"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="status">Status</label>
+          <select id="status" name="status" [(ngModel)]="form.status" required>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="preview-box" *ngIf="form.program && form.yearLevel && form.sectionName">
+        Generated section code:
+        <strong>
+          {{ form.program }}-{{ form.yearLevel.charAt(0)
+          }}{{ form.sectionName.trim().toUpperCase() }}
+        </strong>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="secondary-btn" (click)="closeFormModal()">Cancel</button>
+
+        <button type="submit" class="primary-btn" [disabled]="isSaving">
+          {{ isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Save Section' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showImportModal">
+  <div class="modal-card import-modal">
+    <div class="modal-header">
+      <div>
+        <h3>Import Sections from Excel</h3>
+        <p>{{ importFileName || 'Review imported sections before saving.' }}</p>
+      </div>
+
+      <button type="button" class="close-btn" (click)="closeImportModal()">×</button>
+    </div>
+
+    <div class="import-summary">
+      <div>
+        <span>Valid</span>
+        <strong>{{ validImportCount }}</strong>
+      </div>
+
+      <div>
+        <span>Needs Review</span>
+        <strong>{{ invalidImportCount }}</strong>
+      </div>
+
+      <div>
+        <span>Total Rows</span>
+        <strong>{{ importPreview.length }}</strong>
+      </div>
+    </div>
+
+    <div class="excel-hint modal-hint">
+      Required columns: <strong>Program, Year Level, Section Name</strong>. Optional:
+      <strong>Status</strong>.
+    </div>
+
+    <div class="import-table-wrap" *ngIf="importPreview.length > 0">
+      <table>
+        <thead>
+          <tr>
+            <th>Row</th>
+            <th>Section Code</th>
+            <th>Program</th>
+            <th>Year Level</th>
+            <th>Section Name</th>
+            <th>Status</th>
+            <th>Validation</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let section of importPreview" [class.invalid-row]="!section.isValid">
+            <td>{{ section.rowNumber }}</td>
+            <td>{{ section.sectionCode || '—' }}</td>
+            <td>{{ formatProgram(section.program) }} ({{ section.program }})</td>
+            <td>{{ section.yearLevel || '—' }}</td>
+            <td>{{ section.sectionName || '—' }}</td>
+            <td>{{ section.status }}</td>
+            <td>
+              <span class="valid-badge" *ngIf="section.isValid">Ready</span>
+              <span class="error-text" *ngIf="!section.isValid">
+                {{ section.errors.join(', ') }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="secondary-btn" (click)="closeImportModal()">Cancel</button>
+
+      <button
+        type="button"
+        class="primary-btn"
+        [disabled]="isImporting || validImportCount === 0"
+        (click)="confirmImport()"
+      >
+        {{ isImporting ? 'Importing...' : 'Confirm Import' }}
+      </button>
+    </div>
+  </div>
+</div>

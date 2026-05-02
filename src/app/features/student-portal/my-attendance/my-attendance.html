@@ -1,0 +1,123 @@
+<div class="my-attendance-page">
+  <section class="hero-card">
+    <div>
+      <span class="eyebrow">Student Attendance</span>
+      <h1>My Attendance</h1>
+      <p>Track your class attendance records and latest status.</p>
+    </div>
+
+    <div class="rate-card">
+      <span>Attendance Rate</span>
+      <strong>{{ attendanceRate }}%</strong>
+      <div class="rate-bar">
+        <div [style.width.%]="attendanceRate"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="summary-grid">
+    <article class="summary-card">
+      <span>Total</span>
+      <strong>{{ totalRecords }}</strong>
+    </article>
+
+    <article class="summary-card present">
+      <span>Present</span>
+      <strong>{{ presentCount }}</strong>
+    </article>
+
+    <article class="summary-card late">
+      <span>Late</span>
+      <strong>{{ lateCount }}</strong>
+    </article>
+
+    <article class="summary-card absent">
+      <span>Absent</span>
+      <strong>{{ absentCount }}</strong>
+    </article>
+
+    <article class="summary-card excused">
+      <span>Excused</span>
+      <strong>{{ excusedCount }}</strong>
+    </article>
+  </section>
+
+  <section class="records-card">
+    <div class="records-header">
+      <div>
+        <h2>Attendance Records</h2>
+        <p>{{ filteredRecords.length }} record(s) found</p>
+      </div>
+
+      <button type="button" class="clear-btn" (click)="clearFilters()">Clear</button>
+    </div>
+
+    <div class="filter-row">
+      <div class="search-box">
+        <span>⌕</span>
+        <input
+          type="text"
+          name="searchTerm"
+          [(ngModel)]="searchTerm"
+          placeholder="Search subject, section, remarks..."
+        />
+      </div>
+
+      <select name="selectedStatus" [(ngModel)]="selectedStatus">
+        <option value="all">All Status</option>
+        <option value="present">Present</option>
+        <option value="late">Late</option>
+        <option value="absent">Absent</option>
+        <option value="excused">Excused</option>
+      </select>
+    </div>
+
+    <div class="loading-state" *ngIf="isLoading">Loading attendance records...</div>
+
+    <div class="empty-state" *ngIf="!isLoading && filteredRecords.length === 0">
+      <div>▦</div>
+      <h3>No records found</h3>
+      <p>Your attendance records will appear here after scanning an active session.</p>
+    </div>
+
+    <div class="record-list" *ngIf="!isLoading && filteredRecords.length > 0">
+      <article class="record-item" *ngFor="let record of filteredRecords">
+        <div class="record-main">
+          <div>
+            <h3>
+              {{ record.subjectCode || 'Subject' }}
+              <span *ngIf="record.subjectName">— {{ record.subjectName }}</span>
+            </h3>
+            <p>{{ record.sectionCode || 'No section' }}</p>
+          </div>
+
+          <span class="status-chip" [class]="getStatusClass(record.status)">
+            {{ formatStatus(record.status) }}
+          </span>
+        </div>
+
+        <div class="record-details">
+          <div>
+            <span>Date</span>
+            <strong>{{ formatDate(record.createdAt) }}</strong>
+          </div>
+
+          <div>
+            <span>Time</span>
+            <strong>{{ formatTime(record.createdAt) }}</strong>
+          </div>
+
+          <div>
+            <span>Method</span>
+            <strong>{{ formatMethod(record.method) }}</strong>
+          </div>
+
+          <div>
+            <span>Remarks</span>
+            <strong>{{ record.remarks || '—' }}</strong>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>

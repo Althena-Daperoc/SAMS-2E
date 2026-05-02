@@ -1,1 +1,229 @@
 /* You can add global styles to this file, and also import other style files */
+@import 'primeicons/primeicons.css';
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+app-root {
+  display: block;
+  height: 100%;
+}
+
+.sams-swal-popup {
+  border-radius: 20px;
+  padding: 1.25rem 1.25rem 1.1rem;
+}
+
+.sams-swal-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+}
+
+.sams-swal-text {
+  font-size: 0.96rem;
+  line-height: 1.55;
+}
+
+.sams-swal-confirm,
+.sams-swal-cancel {
+  border: none;
+  border-radius: 12px;
+  padding: 0.72rem 1.15rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sams-swal-confirm {
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+  color: #ffffff;
+  margin-left: 0.5rem;
+}
+
+.sams-swal-cancel {
+  background: #e5e7eb;
+  color: #111827;
+  margin-right: 0.5rem;
+}
+
+.sams-swal-confirm:focus,
+.sams-swal-cancel:focus {
+  outline: none;
+}
+
+.sams-swal-toast {
+  border-radius: 14px;
+}
+
+.sams-swal-toast-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+:root,
+:root[data-theme='light'] {
+  --app-bg: #f8fafc;
+  --topbar-bg: rgba(255, 255, 255, 0.92);
+  --surface-color: #ffffff;
+  --panel-muted: #f8fafc;
+  --hover-bg: #f8fafc;
+
+  --text-color: #0f172a;
+  --muted-text: #64748b;
+  --placeholder-color: #94a3b8;
+  --icon-color: #475569;
+
+  --border-color: #e2e8f0;
+
+  --accent-color: #818cf8;
+  --accent-strong: #4f46e5;
+  --accent-border: #c7d2fe;
+  --accent-soft: rgba(99, 102, 241, 0.1);
+
+  --danger-soft: #fef2f2;
+}
+
+:root[data-theme='dark'] {
+  --app-bg: #0f172a;
+  --topbar-bg: rgba(15, 23, 42, 0.9);
+  --surface-color: #111827;
+  --panel-muted: #1e293b;
+  --hover-bg: #1f2937;
+
+  --text-color: #e5eefb;
+  --muted-text: #94a3b8;
+  --placeholder-color: #64748b;
+  --icon-color: #cbd5e1;
+
+  --border-color: #243244;
+
+  --accent-color: #818cf8;
+  --accent-strong: #a5b4fc;
+  --accent-border: #4f46e5;
+  --accent-soft: rgba(99, 102, 241, 0.18);
+
+  --danger-soft: rgba(127, 29, 29, 0.22);
+}
+
+html,
+body {
+  background: var(--app-bg);
+  color: var(--text-color);
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+:root,
+:root[data-theme='light'] {
+  --app-bg: #f8fafc;
+  --topbar-bg: rgba(255, 255, 255, 0.92);
+  --surface-color: #ffffff;
+  --panel-muted: #f8fafc;
+  --hover-bg: #f8fafc;
+
+  --text-color: #0f172a;
+  --muted-text: #64748b;
+  --placeholder-color: #94a3b8;
+  --icon-color: #475569;
+
+  --border-color: #e2e8f0;
+
+  --accent-color: #818cf8;
+  --accent-strong: #4f46e5;
+  --accent-border: #c7d2fe;
+  --accent-soft: rgba(99, 102, 241, 0.1);
+
+  --danger-soft: #fef2f2;
+
+  --sidebar-bg: linear-gradient(180deg, #ffffff 0%, #f8fbff 45%, #f1f5f9 100%);
+  --sidebar-text: #0f172a;
+  --sidebar-heading: #0f172a;
+  --sidebar-muted: #64748b;
+  --sidebar-border: rgba(148, 163, 184, 0.18);
+  --sidebar-shadow: 14px 0 30px rgba(15, 23, 42, 0.08);
+
+  --sidebar-control-bg: rgba(255, 255, 255, 0.72);
+  --sidebar-control-border: rgba(148, 163, 184, 0.22);
+  --sidebar-control-text: #334155;
+  --sidebar-control-hover-bg: rgba(99, 102, 241, 0.08);
+  --sidebar-control-hover-border: rgba(99, 102, 241, 0.22);
+
+  --sidebar-link-text: #475569;
+  --sidebar-link-hover-text: #0f172a;
+  --sidebar-link-hover-border: rgba(99, 102, 241, 0.16);
+  --sidebar-link-active-text: #111827;
+  --sidebar-link-active-border: rgba(99, 102, 241, 0.22);
+  --sidebar-link-active-shadow: 0 10px 24px rgba(99, 102, 241, 0.1);
+  --sidebar-link-glow: linear-gradient(
+    90deg,
+    rgba(99, 102, 241, 0.12),
+    rgba(129, 140, 248, 0.06)
+  );
+
+  --sidebar-card-bg: rgba(255, 255, 255, 0.72);
+  --sidebar-card-border: rgba(148, 163, 184, 0.16);
+}
+
+:root[data-theme='dark'] {
+  --app-bg: #0f172a;
+  --topbar-bg: rgba(15, 23, 42, 0.9);
+  --surface-color: #111827;
+  --panel-muted: #1e293b;
+  --hover-bg: #1f2937;
+
+  --text-color: #e5eefb;
+  --muted-text: #94a3b8;
+  --placeholder-color: #64748b;
+  --icon-color: #cbd5e1;
+
+  --border-color: #243244;
+
+  --accent-color: #818cf8;
+  --accent-strong: #a5b4fc;
+  --accent-border: #4f46e5;
+  --accent-soft: rgba(99, 102, 241, 0.18);
+
+  --danger-soft: rgba(127, 29, 29, 0.22);
+
+  --sidebar-bg: linear-gradient(180deg, #081225 0%, #09162d 45%, #081224 100%);
+  --sidebar-text: #f8fafc;
+  --sidebar-heading: #ffffff;
+  --sidebar-muted: #94a3b8;
+  --sidebar-border: rgba(148, 163, 184, 0.08);
+  --sidebar-shadow: 14px 0 30px rgba(2, 6, 23, 0.12);
+
+  --sidebar-control-bg: rgba(255, 255, 255, 0.06);
+  --sidebar-control-border: rgba(148, 163, 184, 0.14);
+  --sidebar-control-text: #e2e8f0;
+  --sidebar-control-hover-bg: rgba(255, 255, 255, 0.09);
+  --sidebar-control-hover-border: rgba(148, 163, 184, 0.24);
+
+  --sidebar-link-text: #cbd5e1;
+  --sidebar-link-hover-text: #ffffff;
+  --sidebar-link-hover-border: rgba(99, 102, 241, 0.16);
+  --sidebar-link-active-text: #ffffff;
+  --sidebar-link-active-border: rgba(129, 140, 248, 0.22);
+  --sidebar-link-active-shadow: 0 10px 24px rgba(99, 102, 241, 0.12);
+  --sidebar-link-glow: linear-gradient(
+    90deg,
+    rgba(99, 102, 241, 0.18),
+    rgba(129, 140, 248, 0.07)
+  );
+
+  --sidebar-card-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-card-border: rgba(148, 163, 184, 0.1);
+}
+
+html,
+body {
+  background: var(--app-bg);
+  color: var(--text-color);
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}

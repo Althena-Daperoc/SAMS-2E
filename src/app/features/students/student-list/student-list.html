@@ -1,0 +1,391 @@
+<div class="student-page">
+  <div class="page-header">
+    <div>
+      <span class="eyebrow">Student Records</span>
+      <h2>Students</h2>
+      <p>Manage active student records, Excel imports, and archived student data.</p>
+    </div>
+
+    <div class="header-actions">
+      <button class="ghost-btn" type="button" (click)="goBack()">← Back</button>
+
+      <label class="import-btn">
+        Import Excel
+        <input type="file" accept=".xlsx,.xls" hidden (change)="onExcelSelected($event)" />
+      </label>
+
+      <button class="add-btn" type="button" (click)="goToAddStudent()">
+        <span>+</span>
+        Add Student
+      </button>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <p>Total Active Students</p>
+      <h3>{{ activeStudents.length }}</h3>
+    </div>
+
+    <div class="summary-card">
+      <p>Archived Students</p>
+      <h3>{{ archivedStudents.length }}</h3>
+    </div>
+
+    <div class="summary-card">
+      <p>Total Student Records</p>
+      <h3>{{ totalStudentRecords }}</h3>
+    </div>
+  </div>
+
+  <div class="student-card">
+    <div class="card-header">
+      <div>
+        <h3>{{ activeTab === 'active' ? 'Active Students' : 'Archived Students' }}</h3>
+        <p>
+          {{
+            activeTab === 'active'
+              ? 'Students currently available for attendance monitoring and account linking.'
+              : 'Archived students can be restored or permanently deleted.'
+          }}
+        </p>
+      </div>
+
+      <div class="tab-buttons">
+        <button type="button" [class.active]="activeTab === 'active'" (click)="setTab('active')">
+          Active
+        </button>
+
+        <button type="button" [class.active]="activeTab === 'archive'" (click)="setTab('archive')">
+          Archive
+        </button>
+      </div>
+    </div>
+
+    <div class="student-tools">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+
+        <input
+          type="text"
+          name="studentSearch"
+          [(ngModel)]="searchTerm"
+          placeholder="Search by student ID, name, program, year level, section, email, or status..."
+        />
+
+        <button
+          *ngIf="searchTerm"
+          type="button"
+          class="clear-search-btn"
+          (click)="clearSearch()"
+          aria-label="Clear search"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+
+    <div class="format-note" *ngIf="activeTab === 'active'">
+      <strong>Excel columns:</strong>
+      Student ID, Full Name, Program, Year Level, Section, Email
+    </div>
+
+    <div class="loading-state" *ngIf="isLoading">Loading students...</div>
+
+    <div class="empty-state" *ngIf="!isLoading && visibleStudents.length === 0">
+      <div class="empty-icon">👥</div>
+
+      <h3>{{ activeTab === 'active' ? 'No active students yet' : 'Archive is empty' }}</h3>
+
+      <p>
+        {{
+          activeTab === 'active'
+            ? 'Add students manually or import an Excel file to start building the attendance records.'
+            : 'Archived students will appear here when records are moved out of the active list.'
+        }}
+      </p>
+
+      <button
+        *ngIf="activeTab === 'active'"
+        type="button"
+        class="empty-btn"
+        (click)="goToAddStudent()"
+      >
+        Add Student
+      </button>
+    </div>
+
+    <div
+      class="empty-state"
+      *ngIf="!isLoading && visibleStudents.length > 0 && filteredVisibleStudents.length === 0"
+    >
+      <div class="empty-icon">🔎</div>
+
+      <h3>No matching student found</h3>
+
+      <p>
+        No student record matches "<strong>{{ searchTerm }}</strong
+        >". Try searching by student ID, name, program, section, email, or status.
+      </p>
+
+      <button type="button" class="empty-btn" (click)="clearSearch()">Clear Search</button>
+    </div>
+
+    <div class="table-wrapper" *ngIf="!isLoading && filteredVisibleStudents.length > 0">
+      <table class="student-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Student ID</th>
+            <th>Full Name</th>
+            <th>Program</th>
+            <th>Year Level</th>
+            <th>Section</th>
+            <th>Email</th>
+            <th>Status</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let student of filteredVisibleStudents; let i = index">
+            <td>{{ i + 1 }}</td>
+
+            <td>
+              <span class="student-id">{{ student.studentId }}</span>
+            </td>
+
+            <td>
+              <div class="student-name">
+                <div class="avatar">
+                  {{ student.fullName.charAt(0) || '?' }}
+                </div>
+                <span>{{ student.fullName }}</span>
+              </div>
+            </td>
+
+            <td>{{ student.program }}</td>
+            <td>{{ student.yearLevel }}</td>
+            <td>{{ student.section || 'Not set' }}</td>
+            <td>{{ student.email || 'No email' }}</td>
+
+            <td>
+              <button
+                type="button"
+                class="status-badge"
+                [class.inactive]="student.status === 'inactive'"
+                [disabled]="activeTab === 'archive'"
+                (click)="toggleStudentStatus(student)"
+              >
+                {{ student.status || 'active' }}
+              </button>
+            </td>
+
+            <td>
+              <div class="action-buttons" *ngIf="activeTab === 'active'">
+                <button type="button" class="edit-btn" (click)="openEditModal(student)">
+                  Edit
+                </button>
+
+                <button type="button" class="archive-btn" (click)="archiveStudent(student)">
+                  Archive
+                </button>
+              </div>
+
+              <div class="action-buttons" *ngIf="activeTab === 'archive'">
+                <button type="button" class="restore-btn" (click)="restoreStudent(student)">
+                  Restore
+                </button>
+
+                <button
+                  type="button"
+                  class="delete-btn"
+                  (click)="deleteStudentPermanently(student)"
+                >
+                  Delete
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showEditModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <h3>Edit Student</h3>
+        <p>Update this student’s information.</p>
+      </div>
+
+      <button type="button" class="close-btn" (click)="closeEditModal()">×</button>
+    </div>
+
+    <form (ngSubmit)="saveStudentChanges()">
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="editStudentId">Student ID</label>
+          <input
+            id="editStudentId"
+            type="text"
+            name="editStudentId"
+            [(ngModel)]="editForm.studentId"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="editFullName">Full Name</label>
+          <input
+            id="editFullName"
+            type="text"
+            name="editFullName"
+            [(ngModel)]="editForm.fullName"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="editProgram">Program</label>
+          <input
+            id="editProgram"
+            type="text"
+            name="editProgram"
+            [(ngModel)]="editForm.program"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="editYearLevel">Year Level</label>
+          <select id="editYearLevel" name="editYearLevel" [(ngModel)]="editForm.yearLevel" required>
+            <option value="">Select year level</option>
+            <option value="1st Year">1st Year</option>
+            <option value="2nd Year">2nd Year</option>
+            <option value="3rd Year">3rd Year</option>
+            <option value="4th Year">4th Year</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="editSection">Section</label>
+          <input
+            id="editSection"
+            type="text"
+            name="editSection"
+            [(ngModel)]="editForm.section"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="editEmail">Email</label>
+          <input id="editEmail" type="email" name="editEmail" [(ngModel)]="editForm.email" />
+        </div>
+
+        <div class="form-group">
+          <label for="editStatus">Status</label>
+          <select id="editStatus" name="editStatus" [(ngModel)]="editForm.status" required>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="cancel-btn" (click)="closeEditModal()">Cancel</button>
+
+        <button type="submit" class="save-btn" [disabled]="isSaving">
+          {{ isSaving ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="modal-backdrop" *ngIf="showImportModal">
+  <div class="modal-card import-modal">
+    <div class="modal-header">
+      <div>
+        <h3>Import Students from Excel</h3>
+        <p>{{ importFileName || 'Review the imported student records before saving.' }}</p>
+      </div>
+
+      <button type="button" class="close-btn" (click)="closeImportModal()">×</button>
+    </div>
+
+    <div class="import-summary">
+      <div>
+        <span>Valid Records</span>
+        <strong>{{ validImportCount }}</strong>
+      </div>
+
+      <div>
+        <span>Needs Review</span>
+        <strong>{{ invalidImportCount }}</strong>
+      </div>
+
+      <div>
+        <span>Total Rows</span>
+        <strong>{{ importPreview.length }}</strong>
+      </div>
+    </div>
+
+    <div class="format-note">
+      Required columns:
+      <strong>Student ID, Full Name, Program, Year Level, Section</strong>. Optional column:
+      <strong>Email</strong>.
+    </div>
+
+    <div class="table-wrapper import-preview-table" *ngIf="importPreview.length > 0">
+      <table class="student-table">
+        <thead>
+          <tr>
+            <th>Row</th>
+            <th>Student ID</th>
+            <th>Full Name</th>
+            <th>Program</th>
+            <th>Year Level</th>
+            <th>Section</th>
+            <th>Email</th>
+            <th>Validation</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          <tr *ngFor="let student of importPreview" [class.invalid-row]="!student.isValid">
+            <td>{{ student.rowNumber }}</td>
+            <td>{{ student.studentId || '—' }}</td>
+            <td>{{ student.fullName || '—' }}</td>
+            <td>{{ student.program || '—' }}</td>
+            <td>{{ student.yearLevel || '—' }}</td>
+            <td>{{ student.section || '—' }}</td>
+            <td>{{ student.email || '—' }}</td>
+            <td>
+              <span class="valid-badge" *ngIf="student.isValid">Ready</span>
+              <span class="error-text" *ngIf="!student.isValid">
+                {{ student.errors.join(', ') }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="modal-actions">
+      <button type="button" class="cancel-btn" (click)="closeImportModal()">Cancel</button>
+
+      <button
+        type="button"
+        class="save-btn"
+        [disabled]="isImporting || validImportCount === 0"
+        (click)="confirmImport()"
+      >
+        {{ isImporting ? 'Importing...' : 'Confirm Import' }}
+      </button>
+    </div>
+  </div>
+</div>

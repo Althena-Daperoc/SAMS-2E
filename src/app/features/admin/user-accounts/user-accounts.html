@@ -1,0 +1,160 @@
+<div class="accounts-page">
+  <section class="hero-card">
+    <div>
+      <span class="eyebrow">Admin Module</span>
+      <h1>User Accounts</h1>
+      <p>Generate and manage system login credentials for students, faculty, and parents.</p>
+    </div>
+  </section>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <span>Student Accounts</span>
+      <strong>{{ studentAccountCount }}</strong>
+    </article>
+
+    <article class="stat-card">
+      <span>Faculty Accounts</span>
+      <strong>{{ teacherAccountCount }}</strong>
+    </article>
+
+    <article class="stat-card">
+      <span>Parent Accounts</span>
+      <strong>{{ parentAccountCount }}</strong>
+    </article>
+
+    <article class="stat-card">
+      <span>Active Accounts</span>
+      <strong>{{ activeAccountCount }}</strong>
+    </article>
+  </section>
+
+  <section class="main-card">
+    <div class="main-header">
+      <div>
+        <h2>Account Generation</h2>
+        <p>Select a record type, then generate login credentials for each registered person.</p>
+      </div>
+
+      <div class="tabs">
+        <button type="button" [class.active]="activeTab === 'student'" (click)="setTab('student')">
+          Students
+        </button>
+
+        <button type="button" [class.active]="activeTab === 'teacher'" (click)="setTab('teacher')">
+          Faculty
+        </button>
+
+        <button type="button" [class.active]="activeTab === 'parent'" (click)="setTab('parent')">
+          Parents
+        </button>
+      </div>
+    </div>
+
+    <div class="toolbar">
+      <div class="search-box">
+        <span>⌕</span>
+        <input
+          type="text"
+          name="searchTerm"
+          [(ngModel)]="searchTerm"
+          placeholder="Search name, username, email, or role..."
+        />
+      </div>
+
+      <button
+        type="button"
+        class="btn bulk"
+        [disabled]="isProcessing || filteredPendingPeople.length === 0"
+        (click)="bulkGenerateAccounts()"
+      >
+        Generate All Pending
+        <span>{{ filteredPendingPeople.length }}</span>
+      </button>
+    </div>
+
+    <div class="loading-state" *ngIf="isLoading">Loading user account records...</div>
+
+    <div class="empty-state" *ngIf="!isLoading && filteredPeople.length === 0">
+      <div class="empty-icon">👤</div>
+      <h3>No records found</h3>
+      <p>There are no available records for this category yet, or your search has no match.</p>
+    </div>
+
+    <div class="accounts-grid" *ngIf="!isLoading && filteredPeople.length > 0">
+      <article class="account-card" *ngFor="let person of filteredPeople">
+        <div class="avatar-row">
+          <div class="avatar">{{ getInitials(person.fullName) }}</div>
+
+          <div class="identity">
+            <h3>{{ person.fullName }}</h3>
+            <p>{{ person.subtitle }}</p>
+          </div>
+
+          <span
+            class="status-pill"
+            [class.created]="hasAccount(person.username)"
+            [class.inactive]="getAccountStatus(person.username) === 'inactive'"
+          >
+            {{
+              getAccountStatus(person.username) === 'none'
+                ? 'No Account'
+                : getAccountStatus(person.username)
+            }}
+          </span>
+        </div>
+
+        <div class="info-grid">
+          <div>
+            <span>Username</span>
+            <strong>{{ person.username }}</strong>
+          </div>
+
+          <div>
+            <span>Role</span>
+            <strong>{{ person.roleLabel }}</strong>
+          </div>
+
+          <div class="wide">
+            <span>Email</span>
+            <strong>{{ person.email || 'No email provided' }}</strong>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          <button
+            type="button"
+            class="btn primary"
+            *ngIf="!hasAccount(person.username)"
+            [disabled]="isProcessing"
+            (click)="generateAccount(person)"
+          >
+            Generate Account
+          </button>
+
+          <button
+            type="button"
+            class="btn warning"
+            *ngIf="hasAccount(person.username)"
+            [disabled]="isProcessing"
+            (click)="resetPassword(person)"
+          >
+            Reset Password
+          </button>
+
+          <button
+            type="button"
+            class="btn ghost"
+            *ngIf="hasAccount(person.username)"
+            [class.danger]="getAccountStatus(person.username) === 'active'"
+            [class.success]="getAccountStatus(person.username) === 'inactive'"
+            [disabled]="isProcessing"
+            (click)="toggleAccountStatus(person)"
+          >
+            {{ getAccountStatus(person.username) === 'inactive' ? 'Activate' : 'Deactivate' }}
+          </button>
+        </div>
+      </article>
+    </div>
+  </section>
+</div>

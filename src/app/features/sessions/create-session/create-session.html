@@ -1,0 +1,219 @@
+<div class="session-page">
+  <section class="hero-card">
+    <div>
+      <span class="eyebrow">Teacher Module</span>
+      <h1>Create Attendance Session</h1>
+      <p>Select an assigned class, set a duration, and display only the QR code to students.</p>
+    </div>
+
+    <div class="hero-status">
+      <span>Active Sessions</span>
+      <strong>{{ teacherActiveSessions.length }}</strong>
+    </div>
+  </section>
+
+  <section class="setup-grid">
+    <div class="selection-card">
+      <div class="section-header">
+        <div>
+          <h2>Assigned Classes</h2>
+          <p>Choose the class where attendance will be recorded.</p>
+        </div>
+      </div>
+
+      <div class="search-box">
+        <span>⌕</span>
+        <input
+          type="text"
+          name="searchTerm"
+          [(ngModel)]="searchTerm"
+          placeholder="Search subject, section, school year..."
+        />
+      </div>
+
+      <div class="loading-state" *ngIf="isLoading">Loading assigned classes...</div>
+
+      <div class="empty-state" *ngIf="!isLoading && filteredAssignments.length === 0">
+        <div class="empty-icon">▦</div>
+        <h3>No assigned classes</h3>
+        <p>Ask the admin to create a teaching assignment for your faculty account.</p>
+      </div>
+
+      <div class="assignment-list" *ngIf="!isLoading && filteredAssignments.length > 0">
+        <button
+          type="button"
+          class="assignment-card"
+          *ngFor="let assignment of filteredAssignments"
+          [class.selected]="selectedAssignmentId === assignment.id"
+          [class.disabled]="hasActiveSession(assignment.id)"
+          (click)="selectAssignment(assignment.id || '')"
+        >
+          <div>
+            <span>{{ assignment.subjectCode }}</span>
+            <h3>{{ assignment.subjectName }}</h3>
+            <p>
+              {{ assignment.sectionCode }} • {{ formatProgram(assignment.program) }} •
+              {{ assignment.yearLevel }}
+            </p>
+          </div>
+
+          <div class="meta">
+            <strong>{{ assignment.semester }}</strong>
+            <small>{{ assignment.schoolYear }}</small>
+            <em *ngIf="hasActiveSession(assignment.id)">Active</em>
+          </div>
+        </button>
+      </div>
+    </div>
+
+    <div class="setup-card">
+      <div class="section-header">
+        <div>
+          <h2>Session Setup</h2>
+          <p>Configure and create the attendance session.</p>
+        </div>
+      </div>
+
+      <div class="selected-preview" *ngIf="selectedAssignment">
+        <span>Selected Class</span>
+        <h3>{{ selectedAssignment.subjectCode }} — {{ selectedAssignment.subjectName }}</h3>
+        <p>
+          {{ selectedAssignment.sectionCode }} • {{ selectedAssignment.facultyName }} •
+          {{ selectedAssignment.semester }}
+        </p>
+      </div>
+
+      <div class="selected-preview muted" *ngIf="!selectedAssignment">
+        <span>No class selected</span>
+        <h3>Select an assigned class</h3>
+        <p>The selected class details will appear here.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="durationMinutes">Session Duration</label>
+        <select id="durationMinutes" name="durationMinutes" [(ngModel)]="durationMinutes">
+          <option [ngValue]="15">15 minutes</option>
+          <option [ngValue]="30">30 minutes</option>
+          <option [ngValue]="45">45 minutes</option>
+          <option [ngValue]="60">1 hour</option>
+          <option [ngValue]="90">1 hour 30 minutes</option>
+          <option [ngValue]="120">2 hours</option>
+        </select>
+      </div>
+
+      <button
+        type="button"
+        class="btn primary full"
+        [disabled]="isCreating || !selectedAssignment || hasActiveSession(selectedAssignment.id)"
+        (click)="createSession()"
+      >
+        {{ isCreating ? 'Creating...' : 'Create Attendance Session' }}
+      </button>
+    </div>
+  </section>
+
+  <section class="qr-display-card" *ngIf="currentDisplaySession">
+    <div class="qr-content">
+      <div class="qr-left">
+        <span class="eyebrow">Live Session</span>
+        <h2>{{ currentDisplaySession.subjectCode }} — {{ currentDisplaySession.subjectName }}</h2>
+        <p>
+          {{ currentDisplaySession.sectionCode }} • {{ currentDisplaySession.facultyName }} •
+          Expires {{ formatDateTime(currentDisplaySession.expiresAt) }}
+        </p>
+
+        <div class="session-code-box">
+          <span>Session Code</span>
+          <strong>{{ currentDisplaySession.sessionCode }}</strong>
+        </div>
+
+        <div class="qr-actions">
+          <button type="button" class="btn primary" (click)="openQrFullscreen()">
+            Full Screen QR
+          </button>
+
+          <button
+            type="button"
+            class="btn danger"
+            [disabled]="isClosing"
+            (click)="closeSession(currentDisplaySession)"
+          >
+            {{ isClosing ? 'Closing...' : 'Close Session' }}
+          </button>
+        </div>
+      </div>
+
+      <div class="qr-center">
+        <div class="qr-box">
+          <img [src]="getQrImageUrl(currentDisplaySession)" alt="Attendance QR Code" />
+        </div>
+        <p>Students may scan this QR or enter the session code manually.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="active-card">
+    <div class="section-header">
+      <div>
+        <h2>Current Active Sessions</h2>
+        <p>Faculty can close an active session anytime.</p>
+      </div>
+    </div>
+
+    <div class="empty-state compact" *ngIf="!isLoading && teacherActiveSessions.length === 0">
+      <div class="empty-icon">✓</div>
+      <h3>No active sessions</h3>
+      <p>Created attendance sessions will appear here.</p>
+    </div>
+
+    <div class="active-list" *ngIf="teacherActiveSessions.length > 0">
+      <article class="active-item" *ngFor="let session of teacherActiveSessions">
+        <div>
+          <span>{{ session.sessionCode }}</span>
+          <h3>{{ session.subjectCode }} — {{ session.subjectName }}</h3>
+          <p>
+            {{ session.sectionCode }} • Created {{ formatDateTime(session.createdAt) }} • Expires
+            {{ formatDateTime(session.expiresAt) }}
+          </p>
+        </div>
+
+        <button
+          type="button"
+          class="btn danger"
+          [disabled]="isClosing"
+          (click)="closeSession(session)"
+        >
+          {{ isClosing ? 'Closing...' : 'Close Session' }}
+        </button>
+      </article>
+    </div>
+  </section>
+</div>
+
+<div class="qr-fullscreen" *ngIf="isQrFullscreen && currentDisplaySession">
+  <button type="button" class="fullscreen-close" (click)="closeQrFullscreen()">×</button>
+
+  <div class="fullscreen-content">
+    <div class="fullscreen-header">
+      <span>Student Attendance Monitoring System</span>
+      <h1>Scan Attendance</h1>
+      <p>{{ currentDisplaySession.subjectCode }} — {{ currentDisplaySession.subjectName }}</p>
+    </div>
+
+    <div class="fullscreen-qr-box">
+      <img [src]="getQrImageUrl(currentDisplaySession)" alt="Attendance QR Code" />
+    </div>
+
+    <div class="fullscreen-code">
+      <span>Session Code</span>
+      <strong>{{ currentDisplaySession.sessionCode }}</strong>
+    </div>
+
+    <div class="fullscreen-footer">
+      <p>
+        Section: <strong>{{ currentDisplaySession.sectionCode }}</strong> &nbsp;•&nbsp; Expires:
+        <strong>{{ formatDateTime(currentDisplaySession.expiresAt) }}</strong>
+      </p>
+    </div>
+  </div>
+</div>

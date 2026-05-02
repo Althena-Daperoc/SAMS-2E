@@ -1,0 +1,217 @@
+<div class="messages-page">
+  <section class="messenger-shell">
+    <aside class="conversation-panel">
+      <div class="panel-header">
+        <div>
+          <span>Messages</span>
+          <h1>Chats</h1>
+        </div>
+
+        <button type="button" class="new-chat-btn" (click)="toggleNewChatPanel()">+</button>
+      </div>
+
+      <div class="search-box">
+        <span>⌕</span>
+        <input
+          type="text"
+          name="searchTerm"
+          [(ngModel)]="searchTerm"
+          placeholder="Search conversations..."
+        />
+      </div>
+
+      <div class="new-chat-panel" *ngIf="showNewChatPanel">
+        <div class="mode-tabs">
+          <button
+            type="button"
+            [class.active]="chatMode === 'private'"
+            (click)="setChatMode('private')"
+          >
+            Private
+          </button>
+
+          <button
+            type="button"
+            [class.active]="chatMode === 'group'"
+            (click)="setChatMode('group')"
+          >
+            Group
+          </button>
+        </div>
+
+        <input
+          *ngIf="chatMode === 'group'"
+          class="group-input"
+          type="text"
+          name="groupName"
+          [(ngModel)]="groupName"
+          placeholder="Group name"
+        />
+
+        <div class="search-box compact">
+          <span>⌕</span>
+          <input
+            type="text"
+            name="contactSearchTerm"
+            [(ngModel)]="contactSearchTerm"
+            placeholder="Search people..."
+          />
+        </div>
+
+        <div class="contact-list">
+          <button
+            type="button"
+            class="contact-item"
+            *ngFor="let user of allowedContacts"
+            [class.selected]="isRecipientSelected(user)"
+            (click)="toggleRecipient(user)"
+          >
+            <div class="avatar">{{ getUserInitial(user) }}</div>
+
+            <div>
+              <strong>{{ user.fullName }}</strong>
+              <span>{{ getRoleLabel(user.role) }}</span>
+            </div>
+          </button>
+        </div>
+
+        <button
+          type="button"
+          class="start-btn"
+          [disabled]="!canCreateChat"
+          (click)="startConversation()"
+        >
+          Start Chat
+        </button>
+      </div>
+
+      <div class="conversation-list" *ngIf="!isLoading && filteredConversations.length > 0">
+        <button
+          type="button"
+          class="conversation-item"
+          *ngFor="let conversation of filteredConversations"
+          [class.active]="selectedConversation?.id === conversation.id"
+          (click)="selectConversation(conversation)"
+        >
+          <div class="conversation-avatar">
+            {{ getConversationInitial(conversation) }}
+          </div>
+
+          <div class="conversation-info">
+            <div class="conversation-top">
+              <strong>{{ getConversationTitle(conversation) }}</strong>
+              <span>{{ formatConversationTime(conversation.lastMessageAt) }}</span>
+            </div>
+
+            <p>
+              {{
+                conversation.lastMessage ||
+                  (conversation.type === 'group'
+                    ? 'Group conversation started'
+                    : 'Private chat started')
+              }}
+            </p>
+          </div>
+        </button>
+      </div>
+
+      <div class="empty-list" *ngIf="!isLoading && filteredConversations.length === 0">
+        <div>💬</div>
+        <strong>No chats yet</strong>
+        <p>Start a private or group conversation.</p>
+      </div>
+
+      <div class="loading-list" *ngIf="isLoading">Loading chats...</div>
+    </aside>
+
+    <main class="chat-panel">
+      <ng-container *ngIf="selectedConversation; else noConversation">
+        <header class="chat-header">
+          <div class="chat-title">
+            <div class="avatar">{{ getConversationInitial(selectedConversation) }}</div>
+
+            <div>
+              <h2>{{ activeConversationTitle }}</h2>
+              <p>{{ activeConversationSubtitle }}</p>
+            </div>
+          </div>
+        </header>
+
+        <div class="message-list" #messageScroll>
+          <div class="message-row" *ngFor="let message of messages" [class.mine]="isMine(message)">
+            <div class="message-avatar" *ngIf="!isMine(message)">
+              {{ getMessageInitial(message) }}
+            </div>
+
+            <div class="message-stack">
+              <span class="sender-name" *ngIf="!isMine(message)">
+                {{ message.senderName }}
+              </span>
+
+              <div class="message-bubble" [class.deleted]="message.isDeleted">
+                <div class="reply-preview" *ngIf="message.replyToText">
+                  <span>{{ message.replyToSenderName }}</span>
+                  <p>{{ message.replyToText }}</p>
+                </div>
+
+                <p>{{ message.text }}</p>
+              </div>
+
+              <div class="message-meta">
+                <span>{{ formatMessageTime(message.createdAt) }}</span>
+                <span *ngIf="getMessageReceiptLabel(message)">
+                  • {{ getMessageReceiptLabel(message) }}
+                </span>
+              </div>
+
+              <div class="message-actions" *ngIf="!message.isDeleted">
+                <button type="button" (click)="setReply(message)">Reply</button>
+                <button type="button" *ngIf="isMine(message)" (click)="unsend(message)">
+                  Unsend
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="composer">
+          <div class="replying-box" *ngIf="replyToMessage">
+            <div>
+              <span>Replying to {{ replyToMessage.senderName }}</span>
+              <p>{{ replyToMessage.text }}</p>
+            </div>
+
+            <button type="button" (click)="cancelReply()">×</button>
+          </div>
+
+          <div class="composer-row">
+            <textarea
+              name="messageText"
+              [(ngModel)]="messageText"
+              rows="1"
+              placeholder="Type a message..."
+              (keydown)="onMessageInputKeydown($event)"
+            ></textarea>
+
+            <button
+              type="button"
+              class="send-btn"
+              [disabled]="isSending || !messageText.trim()"
+              (click)="sendMessage()"
+            >
+              Send
+            </button>
+          </div>
+        </footer>
+      </ng-container>
+
+      <ng-template #noConversation>
+        <div class="no-conversation">
+          <div>💬</div>
+          <h2>Select a conversation</h2>
+          <p>Choose a chat or start a new conversation.</p>
+        </div>
+      </ng-template>
+    </main>
+  </section>
+</div>

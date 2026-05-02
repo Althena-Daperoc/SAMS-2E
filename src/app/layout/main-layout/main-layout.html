@@ -1,0 +1,23 @@
+<div
+  class="layout-shell"
+  [class.sidebar-collapsed]="sidebarService.isCollapsed"
+  [class.sidebar-mobile-open]="sidebarService.isMobileOpen"
+>
+  <button
+    type="button"
+    class="layout-overlay"
+    *ngIf="sidebarService.isMobileOpen"
+    (click)="sidebarService.closeMobileSidebar()"
+    aria-label="Close sidebar overlay"
+  ></button>
+
+  <app-sidebar></app-sidebar>
+
+  <div class="layout-main">
+    <app-topbar></app-topbar>
+
+    <main class="layout-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

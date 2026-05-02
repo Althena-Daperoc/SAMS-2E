@@ -1,0 +1,258 @@
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="page-copy">
+      <div class="page-heading-row">
+        <h1>{{ pageTitle }}</h1>
+      </div>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <div
+      class="global-search"
+      #searchWrapper
+      [class.open]="isSearchOpen"
+      [class.has-value]="!!searchQuery.trim()"
+    >
+      <div class="search-shell" [class.open]="isSearchOpen">
+        <button
+          type="button"
+          class="search-toggle-btn"
+          aria-label="Open global search"
+          (click)="toggleSearch()"
+        >
+          <span class="search-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8" />
+              <path
+                d="M20 20l-4.2-4.2"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+        </button>
+
+        <button
+          *ngIf="!isSearchOpen"
+          type="button"
+          class="search-kbd-hint"
+          (click)="openSearchAndFocus()"
+          aria-label="Open search with Ctrl K"
+          title="Open search (Ctrl + K)"
+        >
+          Ctrl + K
+        </button>
+
+        <input
+          #searchInput
+          type="text"
+          [(ngModel)]="searchQuery"
+          class="search-input"
+          placeholder="Search modules, pages, actions..."
+          autocomplete="off"
+          (focus)="onSearchFocus()"
+          (input)="onSearchInput()"
+          (keydown)="onSearchKeydown($event)"
+          aria-label="Global search"
+        />
+
+        <button
+          *ngIf="isSearchOpen"
+          type="button"
+          class="search-shortcut"
+          (click)="closeSearch(true)"
+          aria-label="Close search"
+        >
+          Esc
+        </button>
+      </div>
+
+      <div
+        #searchPanel
+        class="search-panel"
+        *ngIf="isSearchOpen"
+        role="listbox"
+        aria-label="Search results"
+      >
+        <div class="search-panel-header">
+          <span>Quick navigation</span>
+          <small>Modules you can access</small>
+        </div>
+
+        <ng-container *ngIf="hasSearchResults; else noSearchResults">
+          <button
+            type="button"
+            class="search-result"
+            *ngFor="let item of filteredSearchItems; let i = index"
+            [class.active]="i === activeSearchIndex"
+            (mouseenter)="selectSearchItem(i)"
+            (click)="navigateToSearchItem(item)"
+          >
+            <span class="result-copy">
+              <strong>{{ item.label }}</strong>
+              <small>{{ item.description }}</small>
+            </span>
+
+            <span class="result-route">{{ item.route }}</span>
+          </button>
+        </ng-container>
+
+        <ng-template #noSearchResults>
+          <div class="search-empty">
+            <strong>No matching module found</strong>
+            <p>Try words like students, session, reports, or attendance.</p>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="theme-toggle"
+      [attr.aria-label]="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
+      [attr.title]="isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'"
+      (click)="toggleTheme()"
+    >
+      <span class="theme-icon" aria-hidden="true">
+        <svg *ngIf="!isDarkMode" viewBox="0 0 24 24" fill="none">
+          <path
+            d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.8 6.8 0 0 0 9.8 9.8Z"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+
+        <svg *ngIf="isDarkMode" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="4.2" stroke="currentColor" stroke-width="1.8" />
+          <path
+            d="M12 2.5v2.2M12 19.3v2.2M21.5 12h-2.2M4.7 12H2.5M18.7 5.3l-1.6 1.6M6.9 17.1l-1.6 1.6M18.7 18.7l-1.6-1.6M6.9 6.9 5.3 5.3"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+          />
+        </svg>
+      </span>
+    </button>
+
+    <div class="profile-wrapper">
+      <button
+        #profileButton
+        type="button"
+        class="profile-trigger"
+        [class.open]="isProfileMenuOpen"
+        [attr.aria-expanded]="isProfileMenuOpen"
+        aria-haspopup="menu"
+        aria-label="Open profile menu"
+        (click)="toggleProfileMenu()"
+        (keydown)="onProfileButtonKeydown($event)"
+      >
+        <span class="profile-avatar">{{ initials }}</span>
+
+        <span class="profile-copy">
+          <strong>{{ currentUserFullName }}</strong>
+          <small>{{ roleLabel }}</small>
+        </span>
+
+        <span class="profile-caret" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M7 10l5 5 5-5"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </span>
+      </button>
+
+      <div
+        #profileMenu
+        class="profile-menu"
+        *ngIf="isProfileMenuOpen"
+        role="menu"
+        aria-label="Profile actions"
+      >
+        <div class="profile-summary">
+          <span class="summary-avatar">{{ initials }}</span>
+
+          <div class="summary-copy">
+            <strong>{{ currentUserFullName }}</strong>
+            <small>{{ roleLabel }}</small>
+          </div>
+        </div>
+
+        <button type="button" class="menu-item" role="menuitem" (click)="openProfileInfo()">
+          <span class="menu-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8" />
+              <path
+                d="M5 20a7 7 0 0 1 14 0"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+            </svg>
+          </span>
+          <span class="menu-copy">
+            <strong>Profile</strong>
+            <small>View account summary</small>
+          </span>
+        </button>
+
+        <button type="button" class="menu-item" role="menuitem" (click)="openSettings()">
+          <span class="menu-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7Z"
+                stroke="currentColor"
+                stroke-width="1.8"
+              />
+              <path
+                d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.1a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 0 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.1a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 0 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.1a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.1a1 1 0 0 0-.9.6Z"
+                stroke="currentColor"
+                stroke-width="1.4"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </span>
+          <span class="menu-copy">
+            <strong>Settings</strong>
+            <small>Preferences and display options</small>
+          </span>
+        </button>
+
+        <div class="menu-divider"></div>
+
+        <button type="button" class="menu-item danger" role="menuitem" (click)="logout()">
+          <span class="menu-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path
+                d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+              />
+              <path
+                d="M16 17l5-5-5-5"
+                stroke="currentColor"
+                stroke-width="1.8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path d="M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </span>
+          <span class="menu-copy">
+            <strong>Logout</strong>
+            <small>Securely sign out of this session</small>
+          </span>
+        </button>
+      </div>
+    </div>
+  </div>
+</header>

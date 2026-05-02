@@ -1,0 +1,165 @@
+<div class="student-form-page">
+  <div class="page-header">
+    <div>
+      <h2>Add Student</h2>
+      <p>Register a new student into the system and optionally link a parent record.</p>
+    </div>
+  </div>
+
+  <div class="form-card">
+    <form (ngSubmit)="onSubmit()">
+      <div class="section-title">
+        <h3>Student Information</h3>
+        <p>These details are required for student records and attendance monitoring.</p>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="studentId">Student ID</label>
+          <input
+            id="studentId"
+            type="text"
+            name="studentId"
+            [(ngModel)]="studentId"
+            placeholder="Enter student ID"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="fullName">Full Name</label>
+          <input
+            id="fullName"
+            type="text"
+            name="fullName"
+            [(ngModel)]="fullName"
+            placeholder="Enter full name"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="program">Program</label>
+          <input
+            id="program"
+            type="text"
+            name="program"
+            [(ngModel)]="program"
+            placeholder="Enter program"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="yearLevel">Year Level</label>
+          <select id="yearLevel" name="yearLevel" [(ngModel)]="yearLevel" required>
+            <option value="" disabled>Select year level</option>
+            <option value="1st Year">1st Year</option>
+            <option value="2nd Year">2nd Year</option>
+            <option value="3rd Year">3rd Year</option>
+            <option value="4th Year">4th Year</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="section">Section</label>
+          <input
+            id="section"
+            type="text"
+            name="section"
+            [(ngModel)]="section"
+            placeholder="Enter section (e.g., IT-2A)"
+            required
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="email">Student Email (optional)</label>
+          <input
+            id="email"
+            type="email"
+            name="email"
+            [(ngModel)]="email"
+            placeholder="Enter student email"
+          />
+        </div>
+      </div>
+
+      <div class="section-title parent-section-title">
+        <h3>Parent / Guardian Information</h3>
+        <p>
+          Optional. If provided, the system will automatically create or update the parent record
+          and link this student as their child.
+        </p>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-group">
+          <label for="parentId">Parent ID (optional)</label>
+          <input
+            id="parentId"
+            type="text"
+            name="parentId"
+            [(ngModel)]="parentId"
+            placeholder="Example: PAR-001"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="parentFullName">Parent Full Name</label>
+          <input
+            id="parentFullName"
+            type="text"
+            name="parentFullName"
+            [(ngModel)]="parentFullName"
+            placeholder="Enter parent full name"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="parentEmail">Parent Email</label>
+          <input
+            id="parentEmail"
+            type="email"
+            name="parentEmail"
+            [(ngModel)]="parentEmail"
+            placeholder="parent@email.com"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="parentContactNumber">Parent Contact Number</label>
+          <input
+            id="parentContactNumber"
+            type="text"
+            name="parentContactNumber"
+            [(ngModel)]="parentContactNumber"
+            placeholder="09xxxxxxxxx"
+          />
+        </div>
+
+        <div class="form-group">
+          <label for="parentRelationship">Relationship</label>
+          <select
+            id="parentRelationship"
+            name="parentRelationship"
+            [(ngModel)]="parentRelationship"
+          >
+            <option value="Mother">Mother</option>
+            <option value="Father">Father</option>
+            <option value="Guardian">Guardian</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <button type="button" class="cancel-btn" (click)="onCancel()">Cancel</button>
+
+        <button type="submit" class="save-btn" [disabled]="isSaving">
+          {{ isSaving ? 'Saving...' : 'Save Student' }}
+        </button>
+      </div>
+    </form>
+  </div>
+</div>

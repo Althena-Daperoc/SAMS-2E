@@ -1,0 +1,147 @@
+<div class="login-page">
+  <div class="login-overlay"></div>
+
+  <div class="login-card">
+    <div class="brand-block">
+      <div class="brand-badge">SAMS</div>
+      <h1>Welcome Back</h1>
+      <p class="subtitle">Sign in to your Student Attendance Monitoring System</p>
+    </div>
+
+    <form #loginForm="ngForm" (ngSubmit)="onLogin(loginForm)" class="login-form" novalidate>
+      <div
+        class="input-group"
+        [class.has-value]="username.trim()"
+        [class.invalid]="loginForm.submitted && loginForm.controls['username']?.invalid"
+      >
+        <div class="input-icon left-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M4 20a8 8 0 0 1 16 0"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </div>
+
+        <input
+          id="username"
+          type="text"
+          name="username"
+          [(ngModel)]="username"
+          #usernameModel="ngModel"
+          required
+          autocomplete="username"
+          placeholder=" "
+        />
+
+        <label for="username">Username</label>
+
+        <div class="input-line"></div>
+      </div>
+
+      <div
+        class="input-group password-group"
+        [class.has-value]="password.trim()"
+        [class.invalid]="loginForm.submitted && loginForm.controls['password']?.invalid"
+      >
+        <div class="input-icon left-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M7 11V8a5 5 0 1 1 10 0v3"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <rect
+              x="4"
+              y="11"
+              width="16"
+              height="9"
+              rx="2"
+              stroke="currentColor"
+              stroke-width="1.8"
+            />
+            <path d="M12 15v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+          </svg>
+        </div>
+
+        <input
+          id="password"
+          [type]="showPassword ? 'text' : 'password'"
+          name="password"
+          [(ngModel)]="password"
+          #passwordModel="ngModel"
+          required
+          autocomplete="current-password"
+          placeholder=" "
+        />
+
+        <label for="password">Password</label>
+
+        <button
+          type="button"
+          class="password-toggle"
+          (click)="togglePasswordVisibility()"
+          [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+        >
+          <svg *ngIf="!showPassword" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.8" />
+          </svg>
+
+          <svg *ngIf="showPassword" viewBox="0 0 24 24" fill="none">
+            <path d="M3 3l18 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            <path
+              d="M10.58 10.58A2 2 0 0 0 12 14a2 2 0 0 0 1.42-.58"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M9.88 5.09A10.94 10.94 0 0 1 12 5c6.5 0 10 7 10 7a16.86 16.86 0 0 1-4.13 4.77"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M6.61 6.61C3.8 8.15 2 12 2 12a16.2 16.2 0 0 0 5.39 5.39A10.74 10.74 0 0 0 12 19c1.35 0 2.63-.24 3.8-.68"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+          </svg>
+        </button>
+
+        <div class="input-line"></div>
+      </div>
+
+      <button
+        type="submit"
+        class="login-btn"
+        [disabled]="isSubmitting || !username.trim() || !password.trim()"
+      >
+        <span>{{ isSubmitting ? 'Signing in...' : 'Login' }}</span>
+      </button>
+    </form>
+  </div>
+</div>

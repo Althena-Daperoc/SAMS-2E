@@ -1,0 +1,68 @@
+<section class="faqs-page">
+  <div class="faqs-hero">
+    <div>
+      <p class="eyebrow">Help Center</p>
+      <h1>FAQs / Help</h1>
+      <p>Quick answers for using SAMS as a {{ roleLabel }}.</p>
+    </div>
+
+    <div class="help-badge">
+      <span>SAMS Guide</span>
+    </div>
+  </div>
+
+  <div class="faqs-layout">
+    <aside class="guide-card">
+      <p class="card-label">Quick Guide</p>
+      <h2>Need help?</h2>
+      <p>This page contains simple answers for common actions in the system.</p>
+
+      <div class="guide-list">
+        <div>
+          <strong>Profile</strong>
+          <span>View your account details.</span>
+        </div>
+
+        <div>
+          <strong>Settings</strong>
+          <span>Change password and display preference.</span>
+        </div>
+
+        <div>
+          <strong>Attendance</strong>
+          <span>Scan, monitor, and review attendance records.</span>
+        </div>
+      </div>
+    </aside>
+
+    <article class="faq-card">
+      <div class="faq-header">
+        <div>
+          <p class="card-label">Common Questions</p>
+          <h2>Frequently Asked Questions</h2>
+        </div>
+
+        <span>{{ visibleFaqs.length }} items</span>
+      </div>
+
+      <div class="faq-list">
+        <button
+          type="button"
+          class="faq-item"
+          *ngFor="let faq of visibleFaqs; let i = index"
+          [class.open]="activeIndex === i"
+          (click)="setActive(i)"
+        >
+          <div class="faq-question">
+            <strong>{{ faq.question }}</strong>
+            <span>{{ activeIndex === i ? '−' : '+' }}</span>
+          </div>
+
+          <p *ngIf="activeIndex === i">
+            {{ faq.answer }}
+          </p>
+        </button>
+      </div>
+    </article>
+  </div>
+</section>

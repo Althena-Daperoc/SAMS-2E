@@ -27,28 +27,44 @@ import { MyAttendance } from './features/student-portal/my-attendance/my-attenda
 
 import { Messages } from './features/messages/messages';
 
+import { Profile } from './features/profile/profile';
+import { Settings } from './features/settings/settings';
+import { Faqs } from './features/faqs/faqs';
+
 import { MainLayout } from './layout/main-layout/main-layout';
 
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
-  {
-    path: '',
-    redirectTo: 'login',
-    pathMatch: 'full',
-  },
-
-  {
-    path: 'login',
-    component: Login,
-  },
+  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: 'login', component: Login },
 
   {
     path: '',
     component: MainLayout,
     canActivate: [authGuard],
     children: [
+      //GLOBAL
+      {
+        path: 'profile',
+        component: Profile,
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'teacher', 'student', 'parent'] },
+      },
+      {
+        path: 'settings',
+        component: Settings,
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'teacher', 'student', 'parent'] },
+      },
+      {
+        path: 'faqs', // ✅ ADD THIS
+        component: Faqs,
+        canActivate: [roleGuard],
+        data: { roles: ['admin', 'teacher', 'student', 'parent'] },
+      },
+
       //ADMIN
       {
         path: 'dashboard',
@@ -56,7 +72,6 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: { roles: ['admin', 'teacher'] },
       },
-
       {
         path: 'students',
         component: StudentList,
@@ -169,8 +184,5 @@ export const routes: Routes = [
     ],
   },
 
-  {
-    path: '**',
-    redirectTo: 'login',
-  },
+  { path: '**', redirectTo: 'login' },
 ];

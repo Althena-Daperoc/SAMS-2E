@@ -193,10 +193,10 @@ export class AttendanceRecords implements OnInit, OnDestroy {
       markLoaded('students');
     });
 
-    this.listenToCollection('attendanceRecords', (data) => {
+    this.listenToCollection('attendance', (data) => {
       this.attendanceRecords = data;
       this.cleanSelections();
-      markLoaded('attendanceRecords');
+      markLoaded('attendance');
     });
 
     this.listenToCollection('attendanceRequests', (data) => {
@@ -258,8 +258,7 @@ export class AttendanceRecords implements OnInit, OnDestroy {
   async clearSelected(): Promise<void> {
     if (this.activeTab === 'roster' || !this.hasVisibleSelection || this.isProcessing) return;
 
-    const collectionName =
-      this.activeTab === 'requests' ? 'attendanceRequests' : 'attendanceRecords';
+    const collectionName = this.activeTab === 'requests' ? 'attendanceRequests' : 'attendance';
     const selectedIds =
       this.activeTab === 'requests'
         ? Array.from(this.selectedRequestIds)
@@ -315,8 +314,7 @@ export class AttendanceRecords implements OnInit, OnDestroy {
   async clearAllVisible(): Promise<void> {
     if (this.activeTab === 'roster' || this.visibleItems.length === 0 || this.isProcessing) return;
 
-    const collectionName =
-      this.activeTab === 'requests' ? 'attendanceRequests' : 'attendanceRecords';
+    const collectionName = this.activeTab === 'requests' ? 'attendanceRequests' : 'attendance';
     const idsToDelete = this.visibleItems.map((item) => item.id).filter(Boolean);
 
     if (idsToDelete.length === 0) return;
@@ -392,7 +390,7 @@ export class AttendanceRecords implements OnInit, OnDestroy {
       const alreadyRecorded = await this.checkExistingAttendance(request);
 
       if (!alreadyRecorded) {
-        await addDoc(collection(this.firestore, 'attendanceRecords'), {
+        await addDoc(collection(this.firestore, 'attendance'), {
           requestId: request.id,
           sessionId: request.sessionId || '',
           sessionCode: request.sessionCode || '',
@@ -651,7 +649,7 @@ export class AttendanceRecords implements OnInit, OnDestroy {
   }
 
   private async checkExistingAttendance(request: any): Promise<boolean> {
-    const recordsRef = collection(this.firestore, 'attendanceRecords');
+    const recordsRef = collection(this.firestore, 'attendance');
 
     const q = query(
       recordsRef,

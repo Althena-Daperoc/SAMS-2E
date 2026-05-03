@@ -30,8 +30,11 @@ interface AttendanceSession {
   qrToken?: string;
   qrData?: string;
   durationMinutes?: number;
+  startTime?: string;
+  endTime?: string;
   expiresAt?: string;
   status?: 'active' | 'closed' | string;
+  isActive?: boolean;
   createdBy?: string;
   createdByName?: string;
   createdAt?: string;
@@ -86,7 +89,7 @@ export class AttendanceCheck implements OnInit, OnDestroy {
   }
 
   get activeSessions(): AttendanceSession[] {
-    return this.sessions.filter((session) => session.status === 'active');
+    return this.sessions.filter((session) => this.isSessionCurrentlyValid(session, false));
   }
 
   get studentSectionLabel(): string {
@@ -272,33 +275,44 @@ export class AttendanceCheck implements OnInit, OnDestroy {
       return;
     }
 
-    if (this.selectedSession.status !== 'active') {
+    const validation = this.validateSessionIntegrity(this.selectedSession);
+
+    if (!validation.valid) {
       await Swal.fire({
-        title: 'Session Closed',
-        text: 'This attendance session is no longer active.',
+        title: validation.title,
+        text: validation.message,
         icon: 'warning',
         confirmButtonColor: '#4f46e5',
       });
       return;
     }
 
-    if (this.isSessionExpired(this.selectedSession)) {
+    const alreadyRecorded = await this.attendanceService.hasAttendanceRecord(
+      this.selectedSession.id,
+      this.currentStudent.studentId,
+    );
+
+    if (alreadyRecorded) {
       await Swal.fire({
-        title: 'Session Expired',
-        text: 'The attendance period for this session has already ended.',
-        icon: 'warning',
+        title: 'Already Recorded',
+        text: 'You have already submitted attendance for this session.',
+        icon: 'info',
         confirmButtonColor: '#4f46e5',
       });
       return;
     }
 
-    const isRegularStudent = this.isStudentAllowedForSession(
+    const sectionValidation = this.validateStudentSection(
       this.selectedSession,
       this.currentStudent,
     );
 
-    if (!isRegularStudent) {
-      await this.submitIrregularRequest(this.selectedSession, this.currentStudent);
+    if (!sectionValidation.allowed) {
+      await this.submitIrregularRequest(
+        this.selectedSession,
+        this.currentStudent,
+        sectionValidation.reason,
+      );
       return;
     }
 
@@ -327,12 +341,17 @@ export class AttendanceCheck implements OnInit, OnDestroy {
   }
 
   getTimeRemaining(session: AttendanceSession | null): string {
-    if (!session?.expiresAt) return 'N/A';
+    if (!session) return 'N/A';
 
-    const expiresAt = new Date(session.expiresAt).getTime();
+    const expiryValue = session.expiresAt || session.endTime;
+
+    if (!expiryValue) return 'N/A';
+
+    const expiresAt = new Date(expiryValue).getTime();
     const now = Date.now();
     const diff = expiresAt - now;
 
+    if (Number.isNaN(expiresAt)) return 'N/A';
     if (diff <= 0) return 'Expired';
 
     const minutes = Math.floor(diff / 60000);
@@ -344,9 +363,13 @@ export class AttendanceCheck implements OnInit, OnDestroy {
   }
 
   isSessionExpired(session: AttendanceSession | null): boolean {
-    if (!session?.expiresAt) return false;
+    if (!session) return false;
 
-    const expiresAt = new Date(session.expiresAt).getTime();
+    const expiryValue = session.expiresAt || session.endTime;
+
+    if (!expiryValue) return false;
+
+    const expiresAt = new Date(expiryValue).getTime();
 
     if (Number.isNaN(expiresAt)) return false;
 
@@ -372,8 +395,8 @@ export class AttendanceCheck implements OnInit, OnDestroy {
       html: `
         <div style="text-align:left;line-height:1.7">
           <strong>Student:</strong> ${student.fullName}<br>
-          <strong>Subject:</strong> ${session.subjectCode} - ${session.subjectName}<br>
-          <strong>Section:</strong> ${session.sectionCode}<br>
+          <strong>Subject:</strong> ${session.subjectCode || ''} - ${session.subjectName || ''}<br>
+          <strong>Section:</strong> ${session.sectionCode || 'N/A'}<br>
           <strong>Teacher:</strong> ${session.facultyName || 'N/A'}
         </div>
       `,
@@ -410,12 +433,19 @@ export class AttendanceCheck implements OnInit, OnDestroy {
         program: session.program || student.program || '',
         yearLevel: session.yearLevel || student.yearLevel || '',
 
+        studentProgram: student.program || '',
+        studentYearLevel: student.yearLevel || '',
+        studentSection: student.section || '',
+
         schoolYear: session.schoolYear || '',
         semester: session.semester || '',
 
         status: 'present',
         method: 'qr_or_session_code',
         remarks: `Submitted by regular student at ${now.toLocaleString()}`,
+
+        validatedSessionStatus: session.status || '',
+        validatedAt: now.toISOString(),
       });
 
       this.lastSubmittedSession = session;
@@ -454,6 +484,7 @@ export class AttendanceCheck implements OnInit, OnDestroy {
   private async submitIrregularRequest(
     session: AttendanceSession,
     student: Student,
+    validationReason = 'Student does not match the assigned class section.',
   ): Promise<void> {
     const pendingExists = await this.attendanceRequestService.hasPendingRequest(
       session.id || '',
@@ -471,12 +502,18 @@ export class AttendanceCheck implements OnInit, OnDestroy {
     }
 
     const result = await Swal.fire({
-      title: 'Irregular / Sit-in Request',
+      title: 'Attendance Request Required',
       html: `
         <div style="text-align:left;line-height:1.7">
-          <strong>Your Section:</strong> ${student.section || 'N/A'}<br>
+          <strong>Your Program:</strong> ${this.formatProgram(student.program)}<br>
+          <strong>Your Year Level:</strong> ${student.yearLevel || 'N/A'}<br>
+          <strong>Your Section:</strong> ${student.section || 'N/A'}<br><br>
+
+          <strong>Session Program:</strong> ${this.formatProgram(session.program)}<br>
+          <strong>Session Year Level:</strong> ${session.yearLevel || 'N/A'}<br>
           <strong>Session Section:</strong> ${session.sectionCode || 'N/A'}<br><br>
-          You are not part of the assigned section for this session.
+
+          ${validationReason}<br><br>
           Your attendance will be sent to the teacher for approval.
         </div>
       `,
@@ -523,6 +560,7 @@ export class AttendanceCheck implements OnInit, OnDestroy {
         semester: session.semester || '',
 
         reason: result.value,
+        validationReason,
         method: 'qr_or_session_code_request',
         requestType: 'irregular_or_sit_in',
       });
@@ -555,23 +593,125 @@ export class AttendanceCheck implements OnInit, OnDestroy {
     }
 
     this.currentStudent =
-      this.students.find((student) => student.studentId === this.currentUser?.username) ||
+      this.students.find(
+        (student) =>
+          this.normalize(student.studentId) === this.normalize(this.currentUser?.username),
+      ) ||
       this.students.find(
         (student) =>
           student.email &&
           this.currentUser?.email &&
-          student.email.toLowerCase() === this.currentUser.email.toLowerCase(),
+          this.normalize(student.email) === this.normalize(this.currentUser.email),
       ) ||
       null;
   }
 
-  private isStudentAllowedForSession(session: AttendanceSession, student: Student): boolean {
-    const sessionSection = (session.sectionCode || '').trim().toLowerCase();
-    const studentSection = (student.section || '').trim().toLowerCase();
+  private validateSessionIntegrity(session: AttendanceSession): {
+    valid: boolean;
+    title: string;
+    message: string;
+  } {
+    const status = this.normalize(session.status);
 
-    if (!sessionSection || !studentSection) return true;
+    if (status !== 'active') {
+      return {
+        valid: false,
+        title: 'Session Closed',
+        message: 'This attendance session is no longer active.',
+      };
+    }
 
-    return sessionSection === studentSection;
+    if (session.isActive === false) {
+      return {
+        valid: false,
+        title: 'Session Inactive',
+        message: 'This attendance session has been marked as inactive.',
+      };
+    }
+
+    const now = Date.now();
+
+    if (session.startTime) {
+      const startTime = new Date(session.startTime).getTime();
+
+      if (!Number.isNaN(startTime) && now < startTime) {
+        return {
+          valid: false,
+          title: 'Session Not Started',
+          message: 'This attendance session has not started yet.',
+        };
+      }
+    }
+
+    const expiryValue = session.expiresAt || session.endTime;
+
+    if (expiryValue) {
+      const endTime = new Date(expiryValue).getTime();
+
+      if (!Number.isNaN(endTime) && now > endTime) {
+        return {
+          valid: false,
+          title: 'Session Expired',
+          message: 'The attendance period for this session has already ended.',
+        };
+      }
+    }
+
+    return {
+      valid: true,
+      title: '',
+      message: '',
+    };
+  }
+
+  private validateStudentSection(
+    session: AttendanceSession,
+    student: Student,
+  ): { allowed: boolean; reason: string } {
+    const sessionProgram = this.normalize(session.program);
+    const studentProgram = this.normalize(student.program);
+
+    const sessionYearLevel = this.normalize(session.yearLevel);
+    const studentYearLevel = this.normalize(student.yearLevel);
+
+    const sessionSection = this.normalize(session.sectionCode);
+    const studentSection = this.normalize(student.section);
+
+    if (sessionProgram && studentProgram && sessionProgram !== studentProgram) {
+      return {
+        allowed: false,
+        reason: 'Your program does not match the assigned session program.',
+      };
+    }
+
+    if (sessionYearLevel && studentYearLevel && sessionYearLevel !== studentYearLevel) {
+      return {
+        allowed: false,
+        reason: 'Your year level does not match the assigned session year level.',
+      };
+    }
+
+    if (sessionSection && studentSection && sessionSection !== studentSection) {
+      return {
+        allowed: false,
+        reason: 'Your section does not match the assigned session section.',
+      };
+    }
+
+    return {
+      allowed: true,
+      reason: '',
+    };
+  }
+
+  private isSessionCurrentlyValid(session: AttendanceSession, strict = true): boolean {
+    const statusValid = this.normalize(session.status) === 'active';
+    const activeValid = session.isActive !== false;
+    const notExpired = !this.isSessionExpired(session);
+
+    if (!strict) return statusValid && activeValid && notExpired;
+
+    return this.validateSessionIntegrity(session).valid;
   }
 
   private extractSessionCode(rawValue: string): string {
@@ -594,5 +734,11 @@ export class AttendanceCheck implements OnInit, OnDestroy {
   private handleLoadError(): void {
     console.warn('Some attendance data could not be loaded yet.');
     this.isLoading = false;
+  }
+
+  private normalize(value: any): string {
+    return String(value || '')
+      .trim()
+      .toLowerCase();
   }
 }

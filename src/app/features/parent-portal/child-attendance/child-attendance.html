@@ -1,25 +1,41 @@
 <div class="child-attendance-page">
   <section class="page-hero">
-    <div>
+    <div class="hero-content">
       <span class="eyebrow">Child Attendance</span>
       <h1>{{ childInfo.fullName }}</h1>
-      <p>View your child’s attendance history, class status, attendance method, and remarks.</p>
+      <p>
+        View your child’s attendance history, class status, attendance method, and teacher remarks.
+      </p>
     </div>
 
     <div class="rate-card">
       <strong>{{ attendanceSummary.attendanceRate }}%</strong>
       <span>Attendance Rate</span>
+      <small>{{ attendanceSummary.total }} total record(s)</small>
+    </div>
+  </section>
+
+  <section class="loading-card" *ngIf="isLoading">
+    <div class="loader"></div>
+    <div>
+      <h2>Loading Child Attendance</h2>
+      <p>Please wait while the linked student records are being loaded.</p>
     </div>
   </section>
 
   <section class="empty-card" *ngIf="!isLoading && linkedStudents.length === 0">
+    <div class="empty-icon">👨‍👩‍👧</div>
     <h2>No linked student found</h2>
     <p>Please contact the administrator to link your child to this parent account.</p>
   </section>
 
-  <ng-container *ngIf="linkedStudents.length > 0">
+  <ng-container *ngIf="!isLoading && linkedStudents.length > 0">
     <section class="selector-card" *ngIf="linkedStudents.length > 1">
-      <label for="studentSelect">Select Child</label>
+      <div>
+        <span class="eyebrow">Student Selection</span>
+        <h2>Select Child</h2>
+      </div>
+
       <select
         id="studentSelect"
         name="studentSelect"
@@ -34,10 +50,11 @@
 
     <section class="profile-card">
       <div class="avatar">
-        {{ childInfo.fullName.charAt(0) }}
+        {{ studentInitial }}
       </div>
 
       <div class="profile-info">
+        <span class="eyebrow">Student Profile</span>
         <h2>{{ childInfo.fullName }}</h2>
         <p>{{ childInfo.studentId }} • {{ childInfo.program }}</p>
         <span>{{ childInfo.yearLevel }} — {{ childInfo.section }}</span>
@@ -46,24 +63,28 @@
 
     <section class="summary-grid">
       <article class="summary-card present">
+        <div class="summary-icon">✓</div>
         <span>Present</span>
         <strong>{{ attendanceSummary.present }}</strong>
         <p>On-time attendance</p>
       </article>
 
       <article class="summary-card late">
+        <div class="summary-icon">⏱</div>
         <span>Late</span>
         <strong>{{ attendanceSummary.late }}</strong>
         <p>Late attendance</p>
       </article>
 
       <article class="summary-card absent">
+        <div class="summary-icon">!</div>
         <span>Absent</span>
         <strong>{{ attendanceSummary.absent }}</strong>
         <p>Missed classes</p>
       </article>
 
       <article class="summary-card excused">
+        <div class="summary-icon">i</div>
         <span>Excused</span>
         <strong>{{ attendanceSummary.excused }}</strong>
         <p>Approved absences</p>
@@ -73,23 +94,50 @@
     <section class="table-card">
       <div class="table-header">
         <div>
+          <span class="eyebrow">Detailed Records</span>
           <h2>Attendance History</h2>
           <p>Recent attendance records of the selected linked student.</p>
         </div>
       </div>
 
-      <div class="empty-table" *ngIf="attendanceHistory.length === 0">
-        <h3>No attendance records yet</h3>
-        <p>Attendance records will appear here after the student has attendance logs.</p>
+      <div class="filter-bar">
+        <input
+          type="text"
+          name="searchTerm"
+          placeholder="Search subject, teacher, method, or remarks..."
+          [(ngModel)]="searchTerm"
+        />
+
+        <select name="statusFilter" [(ngModel)]="statusFilter">
+          <option value="all">All Status</option>
+          <option value="present">Present</option>
+          <option value="late">Late</option>
+          <option value="absent">Absent</option>
+          <option value="excused">Excused</option>
+        </select>
+
+        <button type="button" (click)="clearFilters()">Clear</button>
       </div>
 
-      <div class="table-wrapper" *ngIf="attendanceHistory.length > 0">
+      <div
+        class="empty-table"
+        *ngIf="!isAttendanceLoading && filteredAttendanceHistory.length === 0"
+      >
+        <h3>No attendance records found</h3>
+        <p>
+          Attendance records will appear here once the student has submitted or received attendance
+          logs.
+        </p>
+      </div>
+
+      <div class="table-wrapper" *ngIf="filteredAttendanceHistory.length > 0">
         <table>
           <thead>
             <tr>
               <th>Subject</th>
               <th>Date</th>
               <th>Time</th>
+              <th>Teacher</th>
               <th>Status</th>
               <th>Method</th>
               <th>Remarks</th>
@@ -97,16 +145,19 @@
           </thead>
 
           <tbody>
-            <tr *ngFor="let record of attendanceHistory">
-              <td>{{ record.subject || 'N/A' }}</td>
-              <td>{{ record.date || 'N/A' }}</td>
-              <td>{{ record.time || 'N/A' }}</td>
+            <tr *ngFor="let record of filteredAttendanceHistory">
+              <td>
+                <strong>{{ getSubjectLabel(record) }}</strong>
+              </td>
+              <td>{{ formatDate(record) }}</td>
+              <td>{{ formatTime(record) }}</td>
+              <td>{{ record.facultyName || 'N/A' }}</td>
               <td>
                 <span class="status-pill" [ngClass]="getStatusClass(record.status)">
                   {{ formatStatus(record.status) }}
                 </span>
               </td>
-              <td>{{ record.method || 'N/A' }}</td>
+              <td>{{ formatMethod(record.method) }}</td>
               <td>{{ record.remarks || 'No remarks' }}</td>
             </tr>
           </tbody>

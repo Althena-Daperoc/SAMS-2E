@@ -4,6 +4,32 @@
   [class.mobile-open]="sidebarService.isMobileOpen"
   [attr.aria-label]="'Primary sidebar navigation'"
 >
+  <button
+    type="button"
+    class="collapse-btn"
+    (click)="toggleSidebar()"
+    [attr.aria-label]="isExpanded ? 'Collapse sidebar' : 'Expand sidebar'"
+  >
+    <svg viewBox="0 0 24 24" fill="none">
+      <path
+        *ngIf="isExpanded"
+        d="M15 18l-6-6 6-6"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+      <path
+        *ngIf="!isExpanded"
+        d="M9 6l6 6-6 6"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      />
+    </svg>
+  </button>
+
   <div class="sidebar-inner">
     <div class="sidebar-header">
       <button
@@ -12,38 +38,22 @@
         (click)="toggleSidebar()"
         [attr.aria-label]="isExpanded ? 'Collapse sidebar' : 'Expand sidebar'"
       >
+        <span class="brand-logo">
+          <img src="assets/images/SAMS 2E.png" alt="SAMS logo" />
+        </span>
+
         <div class="brand-copy" *ngIf="isExpanded">
           <h2>SAMS</h2>
-          <p>Attendance System</p>
+          <h3>
+            <span>Student Attendance</span>
+            <br />
+            <span>Monitoring System</span>
+          </h3>
         </div>
       </button>
-
-      <button
-        type="button"
-        class="collapse-btn"
-        (click)="toggleSidebar()"
-        [attr.aria-label]="isExpanded ? 'Collapse sidebar' : 'Expand sidebar'"
-      >
-        <svg viewBox="0 0 24 24" fill="none">
-          <path
-            *ngIf="isExpanded"
-            d="M15 18l-6-6 6-6"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-          <path
-            *ngIf="!isExpanded"
-            d="M9 6l6 6-6 6"
-            stroke="currentColor"
-            stroke-width="1.8"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
-        </svg>
-      </button>
     </div>
+
+    <div class="sidebar-separator"></div>
 
     <nav
       class="sidebar-nav"

@@ -49,10 +49,56 @@
         <p>{{ filteredRecords.length }} record(s) found</p>
       </div>
 
-      <button type="button" class="clear-btn" (click)="clearFilters()">Clear</button>
+      <div class="record-actions">
+        <button
+          type="button"
+          class="clear-btn"
+          [class.active]="hasActiveFilters"
+          [disabled]="!hasActiveFilters"
+          (click)="clearFilters()"
+        >
+          Clear Filters
+        </button>
+
+        <button
+          type="button"
+          class="clear-btn danger"
+          [disabled]="!hasSelectedRecords"
+          (click)="clearSelectedRecords()"
+        >
+          Clear Selected
+        </button>
+
+        <button
+          type="button"
+          class="clear-btn danger"
+          [disabled]="!hasVisibleRecords"
+          (click)="clearAllRecords()"
+        >
+          Clear All
+        </button>
+
+        <button
+          type="button"
+          class="clear-btn restore"
+          *ngIf="hiddenRecordIds.length > 0"
+          (click)="restoreClearedRecords()"
+        >
+          Restore
+        </button>
+      </div>
     </div>
 
     <div class="filter-row">
+      <label class="select-all-box" *ngIf="!isLoading && filteredRecords.length > 0">
+        <input
+          type="checkbox"
+          [checked]="areAllVisibleRecordsSelected"
+          (change)="toggleSelectAllVisible()"
+        />
+        <span>Select all</span>
+      </label>
+
       <div class="search-box">
         <span>⌕</span>
         <input
@@ -77,13 +123,34 @@
     <div class="empty-state" *ngIf="!isLoading && filteredRecords.length === 0">
       <div>▦</div>
       <h3>No records found</h3>
-      <p>Your attendance records will appear here after scanning an active session.</p>
+      <p *ngIf="hasActiveFilters">
+        No records match your current filters. Click Clear Filters to show all records again.
+      </p>
+      <p *ngIf="!hasActiveFilters && hiddenRecordIds.length === 0">
+        Your attendance records will appear here after scanning an active session.
+      </p>
+      <p *ngIf="!hasActiveFilters && hiddenRecordIds.length > 0">
+        Your records are hidden from this view. Click Restore to show them again.
+      </p>
     </div>
 
     <div class="record-list" *ngIf="!isLoading && filteredRecords.length > 0">
-      <article class="record-item" *ngFor="let record of filteredRecords">
+      <article
+        class="record-item"
+        *ngFor="let record of filteredRecords"
+        [class.selected]="isRecordSelected(record)"
+      >
         <div class="record-main">
-          <div>
+          <label class="record-select">
+            <input
+              type="checkbox"
+              [checked]="isRecordSelected(record)"
+              (change)="toggleRecordSelection(record)"
+            />
+            <span></span>
+          </label>
+
+          <div class="record-title">
             <h3>
               {{ record.subjectCode || 'Subject' }}
               <span *ngIf="record.subjectName">— {{ record.subjectName }}</span>

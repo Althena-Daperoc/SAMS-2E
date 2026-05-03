@@ -42,6 +42,9 @@ export class MyAttendance implements OnInit, OnDestroy {
 
   isLoading = true;
 
+  selectedRecordIds: string[] = [];
+  hiddenRecordIds: string[] = [];
+
   private subscriptions: Subscription[] = [];
 
   constructor(
@@ -52,6 +55,7 @@ export class MyAttendance implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUser = this.authService.getCurrentUser();
+    this.hiddenRecordIds = this.getHiddenRecordIds();
     this.loadData();
   }
 
@@ -62,33 +66,37 @@ export class MyAttendance implements OnInit, OnDestroy {
   get filteredRecords(): AttendanceRecord[] {
     const keyword = this.searchTerm.trim().toLowerCase();
 
-    return this.attendanceRecords.filter((record) => {
-      const matchesSearch =
-        !keyword ||
-        [
-          record.subjectCode,
-          record.subjectName,
-          record.sectionCode,
-          record.status,
-          record.method,
-          record.remarks,
-          record.createdAt,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .includes(keyword);
+    return this.attendanceRecords
+      .filter((record) => !this.hiddenRecordIds.includes(this.getRecordKey(record)))
+      .filter((record) => {
+        const matchesSearch =
+          !keyword ||
+          [
+            record.subjectCode,
+            record.subjectName,
+            record.sectionCode,
+            record.status,
+            record.method,
+            record.remarks,
+            record.createdAt,
+          ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+            .includes(keyword);
 
-      const matchesStatus =
-        this.selectedStatus === 'all' ||
-        String(record.status || '').toLowerCase() === this.selectedStatus;
+        const matchesStatus =
+          this.selectedStatus === 'all' ||
+          String(record.status || '').toLowerCase() === this.selectedStatus;
 
-      return matchesSearch && matchesStatus;
-    });
+        return matchesSearch && matchesStatus;
+      });
   }
 
   get totalRecords(): number {
-    return this.attendanceRecords.length;
+    return this.attendanceRecords.filter(
+      (record) => !this.hiddenRecordIds.includes(this.getRecordKey(record)),
+    ).length;
   }
 
   get presentCount(): number {
@@ -116,6 +124,27 @@ export class MyAttendance implements OnInit, OnDestroy {
 
   get firstName(): string {
     return this.currentUser?.fullName?.trim().split(' ')[0] || 'Student';
+  }
+
+  get hasActiveFilters(): boolean {
+    return this.searchTerm.trim().length > 0 || this.selectedStatus !== 'all';
+  }
+
+  get hasSelectedRecords(): boolean {
+    return this.selectedRecordIds.length > 0;
+  }
+
+  get hasVisibleRecords(): boolean {
+    return this.filteredRecords.length > 0;
+  }
+
+  get areAllVisibleRecordsSelected(): boolean {
+    return (
+      this.filteredRecords.length > 0 &&
+      this.filteredRecords.every((record) =>
+        this.selectedRecordIds.includes(this.getRecordKey(record)),
+      )
+    );
   }
 
   loadData(): void {
@@ -146,6 +175,10 @@ export class MyAttendance implements OnInit, OnDestroy {
             return dateB - dateA;
           });
 
+        this.selectedRecordIds = this.selectedRecordIds.filter((id) =>
+          this.filteredRecords.some((record) => this.getRecordKey(record) === id),
+        );
+
         this.isLoading = false;
       },
       error: () => {
@@ -160,6 +193,58 @@ export class MyAttendance implements OnInit, OnDestroy {
   clearFilters(): void {
     this.searchTerm = '';
     this.selectedStatus = 'all';
+  }
+
+  toggleRecordSelection(record: AttendanceRecord): void {
+    const recordKey = this.getRecordKey(record);
+
+    if (this.selectedRecordIds.includes(recordKey)) {
+      this.selectedRecordIds = this.selectedRecordIds.filter((id) => id !== recordKey);
+      return;
+    }
+
+    this.selectedRecordIds = [...this.selectedRecordIds, recordKey];
+  }
+
+  toggleSelectAllVisible(): void {
+    if (this.areAllVisibleRecordsSelected) {
+      const visibleIds = this.filteredRecords.map((record) => this.getRecordKey(record));
+      this.selectedRecordIds = this.selectedRecordIds.filter((id) => !visibleIds.includes(id));
+      return;
+    }
+
+    const visibleIds = this.filteredRecords.map((record) => this.getRecordKey(record));
+    this.selectedRecordIds = Array.from(new Set([...this.selectedRecordIds, ...visibleIds]));
+  }
+
+  isRecordSelected(record: AttendanceRecord): boolean {
+    return this.selectedRecordIds.includes(this.getRecordKey(record));
+  }
+
+  clearSelectedRecords(): void {
+    if (!this.selectedRecordIds.length) return;
+
+    this.hiddenRecordIds = Array.from(
+      new Set([...this.hiddenRecordIds, ...this.selectedRecordIds]),
+    );
+    this.saveHiddenRecordIds();
+    this.selectedRecordIds = [];
+  }
+
+  clearAllRecords(): void {
+    const visibleIds = this.filteredRecords.map((record) => this.getRecordKey(record));
+
+    if (!visibleIds.length) return;
+
+    this.hiddenRecordIds = Array.from(new Set([...this.hiddenRecordIds, ...visibleIds]));
+    this.saveHiddenRecordIds();
+    this.selectedRecordIds = [];
+  }
+
+  restoreClearedRecords(): void {
+    this.hiddenRecordIds = [];
+    this.selectedRecordIds = [];
+    this.saveHiddenRecordIds();
   }
 
   formatStatus(status?: string): string {
@@ -211,6 +296,39 @@ export class MyAttendance implements OnInit, OnDestroy {
     if (value === 'excused') return 'excused';
 
     return 'neutral';
+  }
+
+  private getRecordKey(record: AttendanceRecord): string {
+    return (
+      record.id ||
+      `${record.studentId || record.studentDocId || record.studentName || 'student'}_${
+        record.subjectCode || record.subjectName || 'subject'
+      }_${record.createdAt || 'date'}`
+    );
+  }
+
+  private getStorageKey(): string {
+    const userKey =
+      this.currentUser?.id ||
+      this.currentUser?.username ||
+      this.currentUser?.email ||
+      this.currentUser?.fullName ||
+      'student';
+
+    return `sams_hidden_attendance_records_${userKey}`;
+  }
+
+  private getHiddenRecordIds(): string[] {
+    try {
+      const stored = localStorage.getItem(this.getStorageKey());
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private saveHiddenRecordIds(): void {
+    localStorage.setItem(this.getStorageKey(), JSON.stringify(this.hiddenRecordIds));
   }
 
   private findCurrentStudent(students: Student[]): Student | null {
@@ -267,8 +385,9 @@ export class MyAttendance implements OnInit, OnDestroy {
   }
 
   private countByStatus(status: string): number {
-    return this.attendanceRecords.filter(
-      (record) => String(record.status || '').toLowerCase() === status,
-    ).length;
+    return this.attendanceRecords.filter((record) => {
+      const isVisible = !this.hiddenRecordIds.includes(this.getRecordKey(record));
+      return isVisible && String(record.status || '').toLowerCase() === status;
+    }).length;
   }
 }

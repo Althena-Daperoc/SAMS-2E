@@ -1,6 +1,6 @@
 <div class="parent-dashboard-page">
   <section class="hero-card">
-    <div>
+    <div class="hero-content">
       <span class="eyebrow">Parent Portal</span>
       <h1>Welcome, {{ parentName }}</h1>
       <p>
@@ -10,22 +10,36 @@
     </div>
 
     <div class="hero-status">
-      <span class="status-label">Latest Status</span>
-      <strong [class]="mainChild.latestStatus.toLowerCase().replace(' ', '-')">
-        {{ mainChild.latestStatus }}
-      </strong>
-      <small>{{ mainChild.latestSubject }} • {{ mainChild.latestDate }}</small>
+      <span>Overall Status</span>
+      <strong [ngClass]="dashboardStatusClass">{{ dashboardStatus }}</strong>
+      <small>{{ latestSubject }} • {{ latestDate }}</small>
+    </div>
+  </section>
+
+  <section class="loading-card" *ngIf="isLoading">
+    <div class="loader"></div>
+    <div>
+      <h2>Loading Parent Dashboard</h2>
+      <p>Please wait while your linked student records are being prepared.</p>
     </div>
   </section>
 
   <section class="empty-card" *ngIf="!isLoading && linkedStudents.length === 0">
+    <div class="empty-icon">👨‍👩‍👧</div>
     <h2>No linked student found</h2>
-    <p>Please contact the administrator to link your child to this parent account.</p>
+    <p>
+      This parent account is not yet linked to a student record. Please contact the administrator to
+      connect your child to this account.
+    </p>
   </section>
 
-  <ng-container *ngIf="linkedStudents.length > 0">
+  <ng-container *ngIf="!isLoading && linkedStudents.length > 0">
     <section class="selector-card" *ngIf="linkedStudents.length > 1">
-      <label for="studentSelect">Select Child</label>
+      <div>
+        <span class="eyebrow">Student Selection</span>
+        <h2>Select Child</h2>
+      </div>
+
       <select
         id="studentSelect"
         name="studentSelect"
@@ -38,45 +52,56 @@
       </select>
     </section>
 
-    <section class="child-card">
-      <div class="child-avatar">
-        {{ mainChild.name.charAt(0) }}
+    <section class="student-overview-card">
+      <div class="student-avatar">
+        {{ studentInitial }}
       </div>
 
-      <div class="child-info">
-        <h2>{{ mainChild.name }}</h2>
-        <p>{{ mainChild.studentId }} • {{ mainChild.program }}</p>
-        <span>{{ mainChild.yearLevel }} — {{ mainChild.section }}</span>
+      <div class="student-info">
+        <span class="eyebrow">Linked Student</span>
+        <h2>{{ selectedStudent?.fullName || 'No linked child' }}</h2>
+        <p>
+          {{ selectedStudent?.studentId || 'N/A' }} •
+          {{ formatProgram(selectedStudent?.program) }}
+        </p>
+        <span>
+          {{ selectedStudent?.yearLevel || 'N/A' }} —
+          {{ selectedStudent?.section || 'N/A' }}
+        </span>
       </div>
 
-      <div class="rate-box">
-        <strong>{{ mainChild.attendanceRate }}%</strong>
+      <div class="attendance-rate-box">
+        <strong>{{ attendanceRate }}%</strong>
         <span>Attendance Rate</span>
       </div>
     </section>
 
     <section class="summary-grid">
       <article class="summary-card present">
+        <div class="summary-icon">✓</div>
         <span>Present</span>
-        <strong>{{ mainChild.present }}</strong>
-        <p>Recorded attendance</p>
+        <strong>{{ presentCount }}</strong>
+        <p>Recorded present attendance</p>
       </article>
 
       <article class="summary-card late">
+        <div class="summary-icon">⏱</div>
         <span>Late</span>
-        <strong>{{ mainChild.late }}</strong>
+        <strong>{{ lateCount }}</strong>
         <p>Late attendance records</p>
       </article>
 
       <article class="summary-card absent">
+        <div class="summary-icon">!</div>
         <span>Absent</span>
-        <strong>{{ mainChild.absent }}</strong>
+        <strong>{{ absentCount }}</strong>
         <p>Missed class records</p>
       </article>
 
       <article class="summary-card excused">
+        <div class="summary-icon">i</div>
         <span>Excused</span>
-        <strong>{{ mainChild.excused }}</strong>
+        <strong>{{ excusedCount }}</strong>
         <p>Approved absence records</p>
       </article>
     </section>
@@ -84,48 +109,78 @@
     <section class="insight-grid">
       <article class="panel">
         <div class="panel-header">
-          <h3>Attendance Overview</h3>
-          <span>Current Term</span>
+          <div>
+            <span class="eyebrow">Attendance Overview</span>
+            <h3>Performance Summary</h3>
+          </div>
+          <strong>{{ totalRecords }} record(s)</strong>
         </div>
 
         <div class="progress-wrapper">
           <div class="progress-label">
             <span>Overall Attendance</span>
-            <strong>{{ mainChild.attendanceRate }}%</strong>
+            <strong>{{ attendanceRate }}%</strong>
           </div>
 
           <div class="progress-track">
-            <div class="progress-fill" [style.width.%]="mainChild.attendanceRate"></div>
+            <div class="progress-fill" [style.width.%]="attendanceRate"></div>
           </div>
         </div>
 
         <p class="panel-note">
-          This summary helps parents quickly identify if the student is maintaining acceptable
-          attendance performance.
+          {{ attendanceInsight }}
         </p>
       </article>
 
       <article class="panel warning-panel">
         <div class="panel-header">
-          <h3>Attendance Warnings</h3>
-          <span>{{ totalWarnings }} concern(s)</span>
+          <div>
+            <span class="eyebrow">Monitoring</span>
+            <h3>Attendance Warnings</h3>
+          </div>
+          <strong>{{ totalWarnings }}</strong>
         </div>
 
-        <div class="warning-item" *ngIf="mainChild.absent > 0">
+        <div class="warning-item danger" *ngIf="absentCount > 0">
           <strong>Absence Alert</strong>
-          <p>{{ mainChild.name }} has {{ mainChild.absent }} absence record(s).</p>
+          <p>{{ selectedStudent?.fullName }} has {{ absentCount }} absence record(s).</p>
         </div>
 
-        <div class="warning-item" *ngIf="mainChild.late > 0">
+        <div class="warning-item caution" *ngIf="lateCount > 0">
           <strong>Late Alert</strong>
-          <p>{{ mainChild.name }} has {{ mainChild.late }} late attendance record(s).</p>
+          <p>{{ selectedStudent?.fullName }} has {{ lateCount }} late attendance record(s).</p>
         </div>
 
         <div class="warning-item success" *ngIf="totalWarnings === 0">
           <strong>No Attendance Warning</strong>
-          <p>Your child currently has no attendance concern.</p>
+          <p>Your child currently has no attendance concern based on available records.</p>
         </div>
       </article>
+    </section>
+
+    <section class="recent-card">
+      <div class="panel-header">
+        <div>
+          <span class="eyebrow">Recent Activity</span>
+          <h3>Latest Attendance Records</h3>
+        </div>
+        <span>{{ recentRecords.length }} shown</span>
+      </div>
+
+      <div class="recent-empty" *ngIf="recentRecords.length === 0">No attendance records yet.</div>
+
+      <div class="recent-list" *ngIf="recentRecords.length > 0">
+        <article class="recent-item" *ngFor="let record of recentRecords">
+          <div>
+            <strong>{{ getSubjectLabel(record) }}</strong>
+            <span>{{ formatDate(record) }} • {{ formatTime(record) }}</span>
+          </div>
+
+          <span class="status-pill" [ngClass]="getStatusClass(record.status)">
+            {{ formatStatus(record.status) }}
+          </span>
+        </article>
+      </div>
     </section>
   </ng-container>
 </div>

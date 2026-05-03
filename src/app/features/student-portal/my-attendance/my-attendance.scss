@@ -170,7 +170,7 @@
   display: flex;
   justify-content: space-between;
   gap: 1rem;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 1rem;
 
   h2 {
@@ -186,6 +186,13 @@
   }
 }
 
+.record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
 .clear-btn {
   border: 0;
   border-radius: 0.85rem;
@@ -194,6 +201,31 @@
   color: var(--primary);
   font-weight: 850;
   cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.clear-btn.active:hover,
+.clear-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  background: rgba(79, 70, 229, 0.16);
+}
+
+.clear-btn.danger {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+}
+
+.clear-btn.restore {
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+}
+
+.clear-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .filter-row {
@@ -210,6 +242,27 @@
     border-radius: 0.9rem;
     padding: 0.8rem 0.85rem;
     outline: none;
+  }
+}
+
+.select-all-box {
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.85rem;
+  border-radius: 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 850;
+  cursor: pointer;
+
+  input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
   }
 }
 
@@ -280,12 +333,21 @@
   padding: 1rem;
   display: grid;
   gap: 0.9rem;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background-color 0.18s ease;
+}
+
+.record-item.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--primary-soft);
 }
 
 .record-main {
   display: flex;
   justify-content: space-between;
-  gap: 1rem;
+  gap: 0.85rem;
   align-items: flex-start;
 
   h3 {
@@ -299,6 +361,27 @@
     color: var(--muted);
     font-size: 0.88rem;
   }
+}
+
+.record-select {
+  width: 22px;
+  min-width: 22px;
+  padding-top: 0.1rem;
+  display: flex;
+  justify-content: center;
+  cursor: pointer;
+
+  input {
+    width: 17px;
+    height: 17px;
+    accent-color: var(--primary);
+    cursor: pointer;
+  }
+}
+
+.record-title {
+  flex: 1;
+  min-width: 0;
 }
 
 .record-details {
@@ -385,6 +468,14 @@
   .record-main {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .record-actions {
+    justify-content: stretch;
+  }
+
+  .record-actions .clear-btn {
+    flex: 1;
   }
 
   .rate-card {

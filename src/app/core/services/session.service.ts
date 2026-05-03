@@ -10,13 +10,18 @@ import {
 } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 
+import { NotificationService } from './notification.service';
+
 @Injectable({
   providedIn: 'root',
 })
 export class Session {
   private readonly collectionName = 'sessions';
 
-  constructor(private firestore: Firestore) {}
+  constructor(
+    private firestore: Firestore,
+    private notificationService: NotificationService,
+  ) {}
 
   getSessions(): Observable<any[]> {
     return new Observable<any[]>((observer) => {
@@ -85,6 +90,8 @@ export class Session {
       updatedAt: now,
     });
 
+    await this.notifyStudentsAboutNewSession(docRef.id, session);
+
     return docRef.id;
   }
 
@@ -97,10 +104,10 @@ export class Session {
     });
   }
 
-  closeSession(id: string): Promise<void> {
+  async closeSession(id: string): Promise<void> {
     const sessionDoc = doc(this.firestore, `${this.collectionName}/${id}`);
 
-    return updateDoc(sessionDoc, {
+    await updateDoc(sessionDoc, {
       status: 'closed',
       closedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -110,5 +117,24 @@ export class Session {
   deleteSession(id: string): Promise<void> {
     const sessionDoc = doc(this.firestore, `${this.collectionName}/${id}`);
     return deleteDoc(sessionDoc);
+  }
+
+  private async notifyStudentsAboutNewSession(sessionId: string, session: any): Promise<void> {
+    const subjectName =
+      session.subjectName ||
+      session.subject ||
+      session.title ||
+      session.sessionTitle ||
+      'Attendance Session';
+
+    const sectionCode = session.sectionCode || session.section || '';
+
+    await this.notificationService.notifyUsersByRole('student', {
+      title: 'New attendance session',
+      message: `${subjectName} attendance session is now active.`,
+      type: 'session',
+      redirectUrl: '/student/scan-attendance',
+      sectionCode,
+    });
   }
 }

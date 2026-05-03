@@ -1,0 +1,129 @@
+<section class="settings-page" *ngIf="currentUser; else noUser">
+  <div class="settings-hero">
+    <div class="hero-left">
+      <div class="avatar">{{ initials }}</div>
+
+      <div>
+        <p class="eyebrow">Account Settings</p>
+        <h1>{{ displayName }}</h1>
+
+        <div class="meta-row">
+          <span>{{ roleLabel }}</span>
+          <span class="dot"></span>
+          <span>{{ accountTypeLabel }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-grid">
+    <article class="settings-card account-card">
+      <p class="card-label">Account</p>
+
+      <div class="account-summary">
+        <div class="summary-row">
+          <span>Full Name</span>
+          <strong>{{ displayName }}</strong>
+        </div>
+
+        <div class="summary-row">
+          <span>Email / Username</span>
+          <strong>{{ displayEmail }}</strong>
+        </div>
+
+        <div class="summary-row">
+          <span>Role</span>
+          <strong>{{ roleLabel }}</strong>
+        </div>
+      </div>
+    </article>
+
+    <article class="settings-card display-card">
+      <div class="card-heading">
+        <div>
+          <p class="card-label">Display</p>
+          <h2>Theme Preference</h2>
+        </div>
+
+        <button
+          type="button"
+          class="theme-switch"
+          [class.active]="isDarkMode"
+          (click)="toggleTheme()"
+        >
+          <span></span>
+        </button>
+      </div>
+
+      <p class="muted">
+        Current mode: <strong>{{ isDarkMode ? 'Dark Mode' : 'Light Mode' }}</strong>
+      </p>
+    </article>
+
+    <article class="settings-card security-card">
+      <div class="security-header">
+        <div>
+          <p class="card-label">Security</p>
+          <h2>Change Password</h2>
+          <p>Update your password if you are still using temporary credentials sent by email.</p>
+        </div>
+      </div>
+
+      <div class="password-form">
+        <div class="form-group">
+          <label>Current Password</label>
+          <input
+            type="password"
+            [(ngModel)]="currentPassword"
+            placeholder="Enter current password"
+            autocomplete="current-password"
+          />
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>New Password</label>
+            <input
+              type="password"
+              [(ngModel)]="newPassword"
+              placeholder="Enter new password"
+              autocomplete="new-password"
+            />
+          </div>
+
+          <div class="form-group">
+            <label>Confirm Password</label>
+            <input
+              type="password"
+              [(ngModel)]="confirmPassword"
+              placeholder="Confirm new password"
+              autocomplete="new-password"
+            />
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="secondary-btn" (click)="clearPasswordFields()">Clear</button>
+
+          <button
+            type="button"
+            class="primary-btn"
+            (click)="changePassword()"
+            [disabled]="isSavingPassword"
+          >
+            {{ isSavingPassword ? 'Saving...' : 'Update Password' }}
+          </button>
+        </div>
+      </div>
+    </article>
+  </div>
+</section>
+
+<ng-template #noUser>
+  <section class="settings-page">
+    <div class="empty-state">
+      <h2>No account found</h2>
+      <p>Please log in again to manage your settings.</p>
+    </div>
+  </section>
+</ng-template>

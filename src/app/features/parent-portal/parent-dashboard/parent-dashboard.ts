@@ -1,7 +1,9 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subscription, combineLatest } from 'rxjs';
+import { Subscription } from 'rxjs';
+
+import { Firestore, collection, getDocs, query, where } from '@angular/fire/firestore';
 
 import { AuthService } from '../../../core/services/auth.service';
 import { StudentService } from '../../../core/services/student.service';
@@ -17,47 +19,72 @@ import { Student } from '../../../models/student.model';
 })
 export class ParentDashboard implements OnInit, OnDestroy {
   parentName = 'Parent';
+
   linkedStudents: Student[] = [];
   selectedStudentId = '';
-  attendanceRecords: any[] = [];
+
+  allAttendanceRecords: any[] = [];
+
   isLoading = true;
+  isAttendanceLoading = true;
 
   private studentSubscription?: Subscription;
   private attendanceSubscription?: Subscription;
+  private linkedStudentIds: string[] = [];
 
   constructor(
+    private firestore: Firestore,
     private authService: AuthService,
     private studentService: StudentService,
     private attendanceService: Attendance,
   ) {}
 
-  ngOnInit(): void {
+  async ngOnInit(): Promise<void> {
     const currentUser = this.authService.getCurrentUser();
     this.parentName = currentUser?.fullName ?? 'Parent';
 
-    const linkedStudentIds = currentUser?.linkedStudentIds ?? [];
+    this.linkedStudentIds = await this.resolveLinkedStudentIds(currentUser);
 
-    if (!linkedStudentIds.length) {
+    if (!this.linkedStudentIds.length) {
       this.isLoading = false;
+      this.isAttendanceLoading = false;
       return;
     }
 
-    const studentStreams = linkedStudentIds.map((id) => this.studentService.getStudentById(id));
-
-    this.studentSubscription = combineLatest(studentStreams).subscribe({
+    this.studentSubscription = this.studentService.getStudents().subscribe({
       next: (students) => {
-        this.linkedStudents = students.filter(Boolean) as Student[];
+        const linkedSet = new Set(this.linkedStudentIds.map((id) => this.normalize(id)));
+
+        this.linkedStudents = students
+          .filter((student) => !student.isArchived)
+          .filter(
+            (student) =>
+              linkedSet.has(this.normalize(student.id)) ||
+              linkedSet.has(this.normalize(student.studentId)),
+          );
 
         if (!this.selectedStudentId && this.linkedStudents.length) {
           this.selectedStudentId = this.linkedStudents[0].id;
-          this.loadAttendance();
         }
 
         this.isLoading = false;
       },
       error: (error) => {
         console.error('Failed to load linked students:', error);
+        this.linkedStudents = [];
         this.isLoading = false;
+      },
+    });
+
+    this.attendanceSubscription = this.attendanceService.getAttendanceRecords().subscribe({
+      next: (records) => {
+        this.allAttendanceRecords = records;
+        this.isAttendanceLoading = false;
+      },
+      error: (error) => {
+        console.error('Failed to load attendance records:', error);
+        this.allAttendanceRecords = [];
+        this.isAttendanceLoading = false;
       },
     });
   }
@@ -67,59 +94,23 @@ export class ParentDashboard implements OnInit, OnDestroy {
     this.attendanceSubscription?.unsubscribe();
   }
 
-  onStudentChange(): void {
-    this.loadAttendance();
-  }
-
-  loadAttendance(): void {
-    this.attendanceSubscription?.unsubscribe();
-
-    if (!this.selectedStudentId) {
-      this.attendanceRecords = [];
-      return;
-    }
-
-    this.attendanceSubscription = this.attendanceService
-      .getAttendanceByStudentDocId(this.selectedStudentId)
-      .subscribe({
-        next: (records) => {
-          this.attendanceRecords = records;
-        },
-        error: (error) => {
-          console.error('Failed to load attendance:', error);
-          this.attendanceRecords = [];
-        },
-      });
-  }
+  onStudentChange(): void {}
 
   get selectedStudent(): Student | undefined {
     return this.linkedStudents.find((student) => student.id === this.selectedStudentId);
   }
 
-  get mainChild() {
-    return {
-      name: this.selectedStudent?.fullName ?? 'No linked child',
-      studentId: this.selectedStudent?.studentId ?? 'N/A',
-      program: this.selectedStudent?.program ?? 'N/A',
-      yearLevel: this.selectedStudent?.yearLevel ?? 'N/A',
-      section: this.selectedStudent?.section ?? 'N/A',
-      attendanceRate: this.attendanceRate,
-      present: this.presentCount,
-      late: this.lateCount,
-      absent: this.absentCount,
-      excused: this.excusedCount,
-      latestStatus: this.latestStatus,
-      latestSubject: this.latestRecord?.subject ?? 'No recent record',
-      latestDate: this.latestRecord?.date ?? 'No date available',
-    };
+  get selectedAttendanceRecords(): any[] {
+    const student = this.selectedStudent;
+    if (!student) return [];
+
+    return this.allAttendanceRecords
+      .filter((record) => this.isRecordForStudent(record, student))
+      .sort((a, b) => this.getRecordTimestamp(b) - this.getRecordTimestamp(a));
   }
 
   get latestRecord(): any | undefined {
-    return this.attendanceRecords[0];
-  }
-
-  get latestStatus(): string {
-    return this.latestRecord?.status ? this.formatStatus(this.latestRecord.status) : 'No Record';
+    return this.selectedAttendanceRecords[0];
   }
 
   get presentCount(): number {
@@ -139,14 +130,11 @@ export class ParentDashboard implements OnInit, OnDestroy {
   }
 
   get totalRecords(): number {
-    return this.attendanceRecords.length;
+    return this.selectedAttendanceRecords.length;
   }
 
   get attendanceRate(): number {
-    if (!this.totalRecords) {
-      return 0;
-    }
-
+    if (!this.totalRecords) return 0;
     return Math.round(((this.presentCount + this.lateCount) / this.totalRecords) * 100);
   }
 
@@ -154,12 +142,183 @@ export class ParentDashboard implements OnInit, OnDestroy {
     return this.absentCount + this.lateCount;
   }
 
-  private countStatus(status: string): number {
-    return this.attendanceRecords.filter((record) => String(record.status).toLowerCase() === status)
-      .length;
+  get dashboardStatus(): string {
+    if (!this.totalRecords) return 'No Records Yet';
+    if (this.attendanceRate >= 90 && this.totalWarnings === 0) return 'Excellent';
+    if (this.attendanceRate >= 80) return 'Good';
+    if (this.attendanceRate >= 70) return 'Needs Monitoring';
+    return 'At Risk';
   }
 
-  private formatStatus(status: string): string {
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+  get dashboardStatusClass(): string {
+    return this.dashboardStatus.toLowerCase().replace(/\s+/g, '-');
+  }
+
+  get latestSubject(): string {
+    return this.latestRecord ? this.getSubjectLabel(this.latestRecord) : 'No recent subject';
+  }
+
+  get latestDate(): string {
+    return this.latestRecord ? this.formatDate(this.latestRecord) : 'No date available';
+  }
+
+  get studentInitial(): string {
+    return (this.selectedStudent?.fullName || 'S').charAt(0).toUpperCase();
+  }
+
+  get recentRecords(): any[] {
+    return this.selectedAttendanceRecords.slice(0, 5);
+  }
+
+  get attendanceInsight(): string {
+    if (!this.totalRecords) {
+      return 'No attendance records are available yet for this student.';
+    }
+
+    if (this.attendanceRate >= 90 && this.totalWarnings === 0) {
+      return 'The student currently maintains a strong attendance performance.';
+    }
+
+    if (this.absentCount > 0 && this.lateCount > 0) {
+      return 'The student has both absence and late records. Continued monitoring is recommended.';
+    }
+
+    if (this.absentCount > 0) {
+      return 'The student has absence records that may require follow-up.';
+    }
+
+    if (this.lateCount > 0) {
+      return 'The student has late records. Monitoring punctuality is recommended.';
+    }
+
+    return 'The student has acceptable attendance performance based on available records.';
+  }
+
+  getStatusClass(status: string): string {
+    return this.normalize(status) || 'unknown';
+  }
+
+  formatStatus(status: string): string {
+    const value = String(status || 'No Record')
+      .replace(/_/g, ' ')
+      .trim();
+    return value.replace(/\b\w/g, (char) => char.toUpperCase());
+  }
+
+  getSubjectLabel(record: any): string {
+    const code = record.subjectCode || record.subject || '';
+    const name = record.subjectName || '';
+
+    if (code && name) return `${code} - ${name}`;
+    return code || name || 'N/A';
+  }
+
+  formatDate(record: any): string {
+    const rawDate = record.createdAt || record.date || record.updatedAt || record.validatedAt;
+    const date = new Date(rawDate);
+
+    if (!rawDate || Number.isNaN(date.getTime())) return 'N/A';
+
+    return date.toLocaleDateString([], {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+    });
+  }
+
+  formatTime(record: any): string {
+    const rawDate = record.createdAt || record.time || record.updatedAt || record.validatedAt;
+    const date = new Date(rawDate);
+
+    if (!rawDate || Number.isNaN(date.getTime())) {
+      return record.time || 'N/A';
+    }
+
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  formatMethod(method: string): string {
+    if (!method) return 'N/A';
+
+    const labels: Record<string, string> = {
+      qr_scan: 'QR Scan',
+      qr_or_session_code: 'QR / Session Code',
+      manual: 'Manual',
+      imported_excel: 'Excel Import',
+      approved_sit_in_request: 'Approved Request',
+      qr_or_session_code_request: 'Request',
+    };
+
+    return labels[method] || this.formatStatus(method);
+  }
+
+  formatProgram(program: string | undefined): string {
+    const labels: Record<string, string> = {
+      IT: 'Information Technology',
+      EMT: 'Electro-Mechanical Technology',
+      TCM: 'Technology Communication Management',
+    };
+
+    return program ? labels[program] || program : 'N/A';
+  }
+
+  private async resolveLinkedStudentIds(currentUser: any): Promise<string[]> {
+    const directIds = currentUser?.linkedStudentIds || [];
+
+    if (Array.isArray(directIds) && directIds.length) {
+      return directIds;
+    }
+
+    const email = String(currentUser?.email || '')
+      .trim()
+      .toLowerCase();
+
+    if (!email) return [];
+
+    try {
+      const parentsRef = collection(this.firestore, 'parents');
+      const parentQuery = query(parentsRef, where('email', '==', email));
+      const snapshot = await getDocs(parentQuery);
+
+      if (snapshot.empty) return [];
+
+      const parentData = snapshot.docs[0].data() as any;
+      return Array.isArray(parentData.linkedStudentIds) ? parentData.linkedStudentIds : [];
+    } catch (error) {
+      console.error('Failed to resolve parent linked students:', error);
+      return [];
+    }
+  }
+
+  private countStatus(status: string): number {
+    return this.selectedAttendanceRecords.filter(
+      (record) => this.normalize(record.status) === status,
+    ).length;
+  }
+
+  private isRecordForStudent(record: any, student: Student): boolean {
+    const recordStudentDocId = this.normalize(record.studentDocId);
+    const recordStudentId = this.normalize(record.studentId);
+
+    return (
+      (!!recordStudentDocId && recordStudentDocId === this.normalize(student.id)) ||
+      (!!recordStudentId && recordStudentId === this.normalize(student.studentId))
+    );
+  }
+
+  private getRecordTimestamp(record: any): number {
+    const rawDate = record.createdAt || record.updatedAt || record.validatedAt || record.date || 0;
+    const date = new Date(rawDate).getTime();
+
+    return Number.isNaN(date) ? 0 : date;
+  }
+
+  private normalize(value: any): string {
+    return String(value || '')
+      .trim()
+      .toLowerCase();
   }
 }

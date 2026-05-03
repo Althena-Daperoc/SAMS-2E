@@ -1,0 +1,85 @@
+<section class="profile-page" *ngIf="currentUser; else noProfile">
+  <div class="profile-hero">
+    <div class="hero-left">
+      <div class="profile-avatar">{{ initials }}</div>
+
+      <div>
+        <p class="eyebrow">SAMS Profile</p>
+        <h1>{{ displayName }}</h1>
+
+        <div class="meta-row">
+          <span>{{ roleLabel }}</span>
+          <span class="dot"></span>
+          <span>{{ statusLabel }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="hero-badge">
+      <span>{{ portalLabel }}</span>
+    </div>
+  </div>
+
+  <div class="profile-grid">
+    <article class="profile-card about-card">
+      <p class="card-label">Overview</p>
+      <h2>{{ roleLabel }} Account</h2>
+      <p>{{ profileDescription }}</p>
+    </article>
+
+    <article class="profile-card">
+      <p class="card-label">Account Information</p>
+
+      <div class="info-list">
+        <div class="info-row">
+          <span>Full Name</span>
+          <strong>{{ displayName }}</strong>
+        </div>
+
+        <div class="info-row">
+          <span>Email / Username</span>
+          <strong>{{ displayEmail }}</strong>
+        </div>
+
+        <div class="info-row">
+          <span>Role</span>
+          <strong>{{ roleLabel }}</strong>
+        </div>
+
+        <div class="info-row">
+          <span>Status</span>
+          <strong>{{ statusLabel }}</strong>
+        </div>
+      </div>
+    </article>
+
+    <article class="profile-card">
+      <p class="card-label">Role Details</p>
+
+      <div class="info-list">
+        <div class="info-row" *ngFor="let item of roleDetails">
+          <span>{{ item.label }}</span>
+          <strong>{{ item.value }}</strong>
+        </div>
+      </div>
+    </article>
+
+    <article class="profile-card note-card">
+      <p class="card-label">User Note</p>
+      <h2>Profile is view-only</h2>
+      <p>
+        Account changes such as password update and display preferences should be managed in
+        Settings.
+      </p>
+    </article>
+  </div>
+</section>
+
+<ng-template #noProfile>
+  <section class="profile-page">
+    <div class="empty-state">
+      <h2>No profile found</h2>
+      <p>Please log in again to view your SAMS profile.</p>
+    </div>
+  </section>
+</ng-template>

@@ -14,6 +14,7 @@ import { Observable } from 'rxjs';
 
 import { Conversation } from '../../models/conversation.model';
 import { ChatMessage } from '../../models/message.model';
+import { NotificationService } from './notification.service';
 
 @Injectable({
   providedIn: 'root',
@@ -22,7 +23,10 @@ export class MessagesService {
   private readonly conversationsCollection = 'conversations';
   private readonly usersCollection = 'users';
 
-  constructor(private firestore: Firestore) {}
+  constructor(
+    private firestore: Firestore,
+    private notificationService: NotificationService,
+  ) {}
 
   getUsers(): Observable<any[]> {
     return new Observable<any[]>((observer) => {
@@ -204,6 +208,18 @@ export class MessagesService {
       createdAt: now,
       updatedAt: now,
       isDeleted: false,
+    });
+
+    const receiverIds = (conversation.participantIds || []).filter(
+      (participantId) => participantId !== sender.id,
+    );
+
+    await this.notificationService.notifyUsersByIds(receiverIds, {
+      title: 'New message',
+      message: `${sender.fullName || 'Someone'}: ${cleanText.substring(0, 60)}`,
+      type: 'message',
+      redirectUrl: '/messages',
+      excludeUserId: sender.id,
     });
 
     const conversationDoc = doc(

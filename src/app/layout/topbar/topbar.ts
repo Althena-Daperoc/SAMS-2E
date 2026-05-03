@@ -16,6 +16,7 @@ import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { AlertService } from '../../core/services/alert.service';
 import { AppSearchItem, AppSearchService } from '../../core/services/app-search.service';
+import { NotificationItem, NotificationService } from '../../core/services/notification.service';
 import { User } from '../../models/user.model';
 
 type PageMeta = {
@@ -32,26 +33,45 @@ type PageMeta = {
 })
 export class Topbar implements OnInit, OnDestroy {
   @ViewChild('searchInput') searchInputRef?: ElementRef<HTMLInputElement>;
-  @ViewChild('searchPanel') searchPanelRef?: ElementRef<HTMLElement>;
   @ViewChild('searchWrapper') searchWrapperRef?: ElementRef<HTMLElement>;
   @ViewChild('profileMenu') profileMenuRef?: ElementRef<HTMLElement>;
   @ViewChild('profileButton') profileButtonRef?: ElementRef<HTMLButtonElement>;
+  @ViewChild('notificationWrapper') notificationWrapperRef?: ElementRef<HTMLElement>;
 
   pageTitle = 'Dashboard';
   pageSubtitle = 'Overview of attendance activity and quick actions.';
+
   searchQuery = '';
   isSearchOpen = false;
-  isProfileMenuOpen = false;
   activeSearchIndex = 0;
+
+  isProfileMenuOpen = false;
+  isNotificationOpen = false;
   isDarkMode = false;
 
+  notifications: NotificationItem[] = [];
+  isNotificationsLoading = false;
+
   private routerSubscription?: Subscription;
+  private notificationSubscription?: Subscription;
   private readonly themeStorageKey = 'sams_theme_mode';
 
   private readonly pageMetaMap: Record<string, PageMeta> = {
     '/dashboard': {
       title: 'Dashboard',
       subtitle: 'Overview of attendance activity and quick actions.',
+    },
+    '/profile': {
+      title: 'Profile',
+      subtitle: 'View your SAMS account profile.',
+    },
+    '/settings': {
+      title: 'Settings',
+      subtitle: 'Manage account preferences and security.',
+    },
+    '/faqs': {
+      title: 'Help & FAQs',
+      subtitle: 'Find answers and guidance on using SAMS.',
     },
     '/students': {
       title: 'Students',
@@ -61,29 +81,57 @@ export class Topbar implements OnInit, OnDestroy {
       title: 'Add Student',
       subtitle: 'Register a new student into the system.',
     },
+    '/admin/faculty': {
+      title: 'Faculty',
+      subtitle: 'Manage faculty records and teaching personnel.',
+    },
+    '/admin/parents': {
+      title: 'Parents',
+      subtitle: 'Manage parent accounts and linked student access.',
+    },
     '/subjects': {
       title: 'Subjects',
       subtitle: 'Manage subject offerings and course listings.',
     },
-    '/sessions/create': {
-      title: 'Create Session',
-      subtitle: 'Create a new attendance session for a subject.',
+    '/admin/sections': {
+      title: 'Sections',
+      subtitle: 'Manage class sections and academic grouping.',
     },
-    '/attendance/check': {
-      title: 'Attendance Check',
-      subtitle: 'Mark and review attendance for active sessions.',
+    '/admin/assignments': {
+      title: 'Assignments',
+      subtitle: 'Manage faculty, subject, and section assignments.',
     },
-    '/attendance/records': {
-      title: 'Attendance Records',
-      subtitle: 'Review saved attendance logs and history.',
+    '/admin/user-accounts': {
+      title: 'User Accounts',
+      subtitle: 'Manage portal credentials and account access.',
     },
     '/reports': {
       title: 'Reports',
       subtitle: 'Generate reports and review attendance summaries.',
     },
+    '/sessions/create': {
+      title: 'Create Session',
+      subtitle: 'Create a new attendance session for students.',
+    },
+    '/attendance/records': {
+      title: 'Attendance Records',
+      subtitle: 'Review saved attendance logs and student attendance history.',
+    },
+    '/student/dashboard': {
+      title: 'Student Dashboard',
+      subtitle: 'View your attendance overview and quick actions.',
+    },
+    '/student/scan-attendance': {
+      title: 'Scan Attendance',
+      subtitle: 'Scan or enter a session code to submit attendance.',
+    },
     '/student/my-attendance': {
       title: 'My Attendance',
-      subtitle: 'Track your attendance records and recent activity.',
+      subtitle: 'Track your attendance records and latest status.',
+    },
+    '/messages': {
+      title: 'Messages',
+      subtitle: 'Chat with classmates and faculty through SAMS.',
     },
     '/parent/dashboard': {
       title: 'Parent Dashboard',
@@ -99,6 +147,7 @@ export class Topbar implements OnInit, OnDestroy {
     private authService: AuthService,
     private alertService: AlertService,
     private appSearchService: AppSearchService,
+    private notificationService: NotificationService,
     private router: Router,
     @Inject(DOCUMENT) private document: Document,
     @Inject(PLATFORM_ID) private platformId: object,
@@ -107,6 +156,7 @@ export class Topbar implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.syncPageMeta(this.router.url);
     this.initializeTheme();
+    this.loadNotifications();
 
     this.routerSubscription = this.router.events
       .pipe(filter((event) => event instanceof NavigationEnd))
@@ -115,15 +165,23 @@ export class Topbar implements OnInit, OnDestroy {
         this.syncPageMeta(navEvent.urlAfterRedirects);
         this.closeSearch(true);
         this.closeProfileMenu();
+        this.closeNotifications();
       });
   }
 
   ngOnDestroy(): void {
     this.routerSubscription?.unsubscribe();
+    this.notificationSubscription?.unsubscribe();
   }
 
   get currentUser(): User | null {
     return this.authService.getCurrentUser();
+  }
+
+  get currentUserId(): string {
+    const user = this.currentUser as any;
+
+    return user?.id ?? user?.uid ?? user?.docId ?? user?.email ?? '';
   }
 
   get currentRole(): User['role'] {
@@ -141,21 +199,10 @@ export class Topbar implements OnInit, OnDestroy {
   get roleLabel(): string {
     const role = this.currentRole;
 
-    if (role === 'admin') {
-      return 'Administrator';
-    }
-
-    if (role === 'teacher') {
-      return 'Teacher';
-    }
-
-    if (role === 'student') {
-      return 'Student';
-    }
-
-    if (role === 'parent') {
-      return 'Parent';
-    }
+    if (role === 'admin') return 'Administrator';
+    if (role === 'teacher') return 'Teacher';
+    if (role === 'student') return 'Student';
+    if (role === 'parent') return 'Parent';
 
     return 'User';
   }
@@ -163,13 +210,8 @@ export class Topbar implements OnInit, OnDestroy {
   get greeting(): string {
     const currentHour = new Date().getHours();
 
-    if (currentHour < 12) {
-      return 'Good morning';
-    }
-
-    if (currentHour < 18) {
-      return 'Good afternoon';
-    }
+    if (currentHour < 12) return 'Good morning';
+    if (currentHour < 18) return 'Good afternoon';
 
     return 'Good evening';
   }
@@ -191,6 +233,10 @@ export class Topbar implements OnInit, OnDestroy {
     return this.filteredSearchItems.length > 0;
   }
 
+  get unreadNotificationCount(): number {
+    return this.notifications.filter((notification) => !notification.isRead).length;
+  }
+
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
     const target = event.target as Node;
@@ -202,12 +248,19 @@ export class Topbar implements OnInit, OnDestroy {
       this.profileButtonRef?.nativeElement.contains(target) ||
       false;
 
+    const clickedInsideNotifications =
+      this.notificationWrapperRef?.nativeElement.contains(target) ?? false;
+
     if (!clickedInsideSearch) {
       this.closeSearch();
     }
 
     if (!clickedInsideProfile) {
       this.closeProfileMenu();
+    }
+
+    if (!clickedInsideNotifications) {
+      this.closeNotifications();
     }
   }
 
@@ -233,6 +286,7 @@ export class Topbar implements OnInit, OnDestroy {
     if (event.key === 'Escape') {
       this.closeSearch();
       this.closeProfileMenu();
+      this.closeNotifications();
     }
   }
 
@@ -249,6 +303,7 @@ export class Topbar implements OnInit, OnDestroy {
     this.isSearchOpen = true;
     this.activeSearchIndex = 0;
     this.closeProfileMenu();
+    this.closeNotifications();
 
     queueMicrotask(() => {
       this.searchInputRef?.nativeElement.focus();
@@ -259,6 +314,7 @@ export class Topbar implements OnInit, OnDestroy {
   onSearchFocus(): void {
     this.isSearchOpen = true;
     this.activeSearchIndex = 0;
+    this.closeNotifications();
   }
 
   onSearchInput(): void {
@@ -323,11 +379,41 @@ export class Topbar implements OnInit, OnDestroy {
     this.router.navigate([item.route]);
   }
 
+  toggleNotifications(): void {
+    this.isNotificationOpen = !this.isNotificationOpen;
+
+    if (this.isNotificationOpen) {
+      this.closeSearch(true);
+      this.closeProfileMenu();
+    }
+  }
+
+  closeNotifications(): void {
+    this.isNotificationOpen = false;
+  }
+
+  async openNotification(notification: NotificationItem): Promise<void> {
+    if (notification.id && !notification.isRead) {
+      await this.notificationService.markAsRead(notification.id);
+    }
+
+    this.closeNotifications();
+
+    if (notification.redirectUrl) {
+      await this.router.navigate([notification.redirectUrl]);
+    }
+  }
+
+  async markNotificationsPreviewRead(): Promise<void> {
+    await this.notificationService.markAllAsRead(this.notifications);
+  }
+
   toggleProfileMenu(): void {
     this.isProfileMenuOpen = !this.isProfileMenuOpen;
 
     if (this.isProfileMenuOpen) {
       this.closeSearch(true);
+      this.closeNotifications();
     }
   }
 
@@ -345,6 +431,7 @@ export class Topbar implements OnInit, OnDestroy {
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       this.isProfileMenuOpen = true;
+      this.closeNotifications();
 
       queueMicrotask(() => {
         const firstMenuButton = this.profileMenuRef?.nativeElement.querySelector(
@@ -365,22 +452,19 @@ export class Topbar implements OnInit, OnDestroy {
     }
   }
 
-  async openProfileInfo(): Promise<void> {
+  goToProfile(): void {
     this.closeProfileMenu();
-
-    await this.alertService.info(
-      'Profile',
-      `${this.currentUserFullName} is currently signed in as ${this.roleLabel}.`,
-    );
+    this.router.navigate(['/profile']);
   }
 
-  async openSettings(): Promise<void> {
+  goToSettings(): void {
     this.closeProfileMenu();
+    this.router.navigate(['/settings']);
+  }
 
-    await this.alertService.info(
-      'Settings',
-      'Settings page is not built yet. We can create it next after topbar polish.',
-    );
+  goToFaqs(): void {
+    this.closeProfileMenu();
+    this.router.navigate(['/faqs']);
   }
 
   async logout(): Promise<void> {
@@ -399,6 +483,53 @@ export class Topbar implements OnInit, OnDestroy {
 
     this.authService.logout();
     await this.alertService.toastSuccess('You have been logged out.');
+  }
+
+  formatNotificationTime(notification: NotificationItem): string {
+    const createdAtDate = notification.createdAt?.toDate?.();
+
+    if (!createdAtDate) {
+      return 'Just now';
+    }
+
+    const diffMs = Date.now() - createdAtDate.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return createdAtDate.toLocaleDateString();
+  }
+
+  private loadNotifications(): void {
+    const userId = this.currentUserId;
+
+    this.notificationSubscription?.unsubscribe();
+
+    if (!userId) {
+      this.notifications = [];
+      return;
+    }
+
+    this.isNotificationsLoading = true;
+
+    this.notificationSubscription = this.notificationService
+      .getUserNotifications(userId)
+      .subscribe({
+        next: (notifications) => {
+          this.notifications = notifications;
+          this.isNotificationsLoading = false;
+        },
+        error: (error) => {
+          console.error('Failed to load notifications:', error);
+          this.notifications = [];
+          this.isNotificationsLoading = false;
+        },
+      });
   }
 
   private syncPageMeta(url: string): void {
@@ -421,8 +552,8 @@ export class Topbar implements OnInit, OnDestroy {
       return;
     }
 
-    this.pageTitle = 'Student Attendance Monitoring System';
-    this.pageSubtitle = 'Manage attendance, sessions, and records efficiently.';
+    this.pageTitle = 'SAMS';
+    this.pageSubtitle = 'Student Attendance Monitoring System';
   }
 
   private initializeTheme(): void {

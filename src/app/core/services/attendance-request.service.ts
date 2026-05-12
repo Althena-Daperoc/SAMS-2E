@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import {
   Firestore,
-  addDoc,
   collection,
   doc,
   getDocs,
@@ -9,8 +8,11 @@ import {
   query,
   updateDoc,
   where,
+  runTransaction,
 } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
+
+import { NotificationService } from './notification.service';
 
 @Injectable({
   providedIn: 'root',
@@ -18,7 +20,10 @@ import { Observable } from 'rxjs';
 export class AttendanceRequestService {
   private readonly collectionName = 'attendanceRequests';
 
-  constructor(private firestore: Firestore) {}
+  constructor(
+    private firestore: Firestore,
+    private notificationService: NotificationService,
+  ) {}
 
   getRequests(): Observable<any[]> {
     return new Observable<any[]>((observer) => {
@@ -62,23 +67,51 @@ export class AttendanceRequestService {
   }
 
   async createRequest(data: any): Promise<void> {
-    const ref = collection(this.firestore, this.collectionName);
+    if (!data?.sessionId || !data?.studentId) {
+      throw new Error('Missing session or student information.');
+    }
+
     const now = new Date().toISOString();
 
-    await addDoc(ref, {
-      ...data,
-      status: 'pending',
-      requestType: data.requestType || 'irregular_or_sit_in',
-      createdAt: now,
-      updatedAt: now,
+    const requestId = `${data.sessionId}_${data.studentId}`
+      .trim()
+      .replace(/[\/\\#?%&{}<>*:$!'"]/g, '-')
+      .replace(/\s+/g, '-');
+
+    const requestDocRef = doc(this.firestore, `${this.collectionName}/${requestId}`);
+
+    await runTransaction(this.firestore, async (transaction) => {
+      const existingRequest = await transaction.get(requestDocRef);
+
+      if (existingRequest.exists()) {
+        const existingData: any = existingRequest.data();
+
+        if (existingData.status === 'pending') {
+          throw new Error('Request already pending.');
+        }
+
+        if (existingData.status === 'approved') {
+          throw new Error('Request already approved.');
+        }
+      }
+
+      transaction.set(requestDocRef, {
+        ...data,
+        status: 'pending',
+        requestType: data.requestType || 'irregular_or_sit_in',
+        createdAt: now,
+        updatedAt: now,
+      });
     });
+
+    await this.notifyTeacherAboutRequest(data);
   }
 
-  approveRequest(id: string, approvedBy: string, approvedByName: string): Promise<void> {
-    const requestDoc = doc(this.firestore, `${this.collectionName}/${id}`);
+  async approveRequest(id: string, approvedBy: string, approvedByName: string): Promise<void> {
+    const requestRef = doc(this.firestore, `${this.collectionName}/${id}`);
     const now = new Date().toISOString();
 
-    return updateDoc(requestDoc, {
+    await updateDoc(requestRef, {
       status: 'approved',
       approvedBy,
       approvedByName,
@@ -103,6 +136,23 @@ export class AttendanceRequestService {
       rejectionReason,
       rejectedAt: now,
       updatedAt: now,
+    });
+  }
+
+  private async notifyTeacherAboutRequest(data: any): Promise<void> {
+    const teacherUserId = String(data.facultyId || '').trim();
+
+    if (!teacherUserId) return;
+
+    await this.notificationService.notifyUsersByIds([teacherUserId], {
+      title: 'Attendance request pending',
+      message: `${data.studentName || 'A student'} sent an attendance request for ${
+        data.subjectName || data.subjectCode || 'your class'
+      }.`,
+      type: 'attendance_request',
+      redirectUrl: '/attendance/records',
+      sectionCode: data.sectionCode || '',
+      sessionId: data.sessionId || null,
     });
   }
 }

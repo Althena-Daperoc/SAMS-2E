@@ -14,6 +14,15 @@
   <app-sidebar></app-sidebar>
 
   <div class="layout-main">
+    <button
+      type="button"
+      class="mobile-menu-btn"
+      (click)="sidebarService.openMobileSidebar()"
+      aria-label="Open sidebar menu"
+    >
+      ☰
+    </button>
+
     <app-topbar></app-topbar>
 
     <main class="layout-content">

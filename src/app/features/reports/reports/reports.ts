@@ -1,923 +1,1142 @@
-import { Component, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Subscription } from 'rxjs';
-import * as XLSX from 'xlsx';
 import Swal from 'sweetalert2';
 
 import {
-  ChartComponent,
-  NgApexchartsModule,
-  ApexAxisChartSeries,
-  ApexChart,
-  ApexXAxis,
-  ApexYAxis,
-  ApexDataLabels,
-  ApexStroke,
-  ApexLegend,
-  ApexTooltip,
-  ApexPlotOptions,
-  ApexGrid,
-  ApexFill,
-  ApexNonAxisChartSeries,
-  ApexResponsive,
-} from 'ng-apexcharts';
+  Firestore,
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  updateDoc,
+} from '@angular/fire/firestore';
 
-import { Attendance } from '../../../core/services/attendance.service';
-import { Session } from '../../../core/services/session.service';
-import { AssignmentService } from '../../../core/services/assignment.service';
-import { StudentService } from '../../../core/services/student.service';
-import { FacultyService } from '../../../core/services/faculty.service';
-import { SectionService } from '../../../core/services/section.service';
-import { SubjectService } from '../../../core/services/subject.service';
 import { AuthService } from '../../../core/services/auth.service';
 
-import { Assignment } from '../../../models/assignment.model';
-import { Student } from '../../../models/student.model';
-import { Faculty } from '../../../models/faculty.model';
-import { Section } from '../../../models/section.model';
-import { Subject } from '../../../models/subject.model';
-import { User } from '../../../models/user.model';
-
-type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';
-
-export type MixedChartOptions = {
-  series: ApexAxisChartSeries;
-  chart: ApexChart;
-  xaxis: ApexXAxis;
-  yaxis: ApexYAxis | ApexYAxis[];
-  dataLabels: ApexDataLabels;
-  stroke: ApexStroke;
-  legend: ApexLegend;
-  tooltip: ApexTooltip;
-  plotOptions: ApexPlotOptions;
-  grid: ApexGrid;
-  fill: ApexFill;
-};
-
-export type BarChartOptions = {
-  series: ApexAxisChartSeries;
-  chart: ApexChart;
-  xaxis: ApexXAxis;
-  yaxis: ApexYAxis;
-  dataLabels: ApexDataLabels;
-  plotOptions: ApexPlotOptions;
-  grid: ApexGrid;
-  tooltip: ApexTooltip;
-};
-
-export type DonutChartOptions = {
-  series: ApexNonAxisChartSeries;
-  chart: ApexChart;
-  labels: string[];
-  legend: ApexLegend;
-  dataLabels: ApexDataLabels;
-  tooltip: ApexTooltip;
-  responsive: ApexResponsive[];
-};
-
-interface AttendanceRecord {
-  id?: string;
-  sessionId?: string;
-  assignmentId?: string;
-  studentId?: string;
-  studentDocId?: string;
-  studentName?: string;
-  facultyId?: string;
-  facultyName?: string;
-  subjectCode?: string;
-  subjectName?: string;
-  sectionCode?: string;
-  program?: string;
-  yearLevel?: string;
-  schoolYear?: string;
-  semester?: string;
-  status?: AttendanceStatus | string;
-  method?: string;
-  remarks?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface SessionRecord {
-  id?: string;
-  assignmentId?: string;
-  facultyId?: string;
-  facultyName?: string;
-  subjectCode?: string;
-  subjectName?: string;
-  sectionCode?: string;
-  schoolYear?: string;
-  semester?: string;
-  status?: string;
-  sessionCode?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-interface ReportRow {
-  id: string;
-  date: string;
-  time: string;
-  studentId: string;
-  studentName: string;
-  facultyName: string;
-  subject: string;
-  section: string;
-  status: string;
-  method: string;
-  remarks: string;
-  sessionCode: string;
-}
+type ReportTab = 'records' | 'trash';
 
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, NgApexchartsModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './reports.html',
   styleUrl: './reports.scss',
 })
 export class Reports implements OnInit, OnDestroy {
-  @ViewChild('mixedChart') mixedChart?: ChartComponent;
+  currentUser: any = null;
 
-  currentUser: User | null = null;
+  attendanceRecords: any[] = [];
+  assignments: any[] = [];
+  students: any[] = [];
+  sessions: any[] = [];
 
-  attendanceRecords: AttendanceRecord[] = [];
-  sessions: SessionRecord[] = [];
-  assignments: Assignment[] = [];
-  students: Student[] = [];
-  faculty: Faculty[] = [];
-  sections: Section[] = [];
-  subjects: Subject[] = [];
+  activeTab: ReportTab = 'records';
 
   searchTerm = '';
-  selectedStatus = 'all';
-  selectedSection = 'all';
-  selectedSubject = 'all';
-  selectedFaculty = 'all';
-  selectedDateFrom = '';
-  selectedDateTo = '';
+  statusFilter = 'all';
+  subjectFilter = 'all';
+  sectionFilter = 'all';
+  monthFilter = 'all';
+  yearFilter = 'all';
 
   isLoading = true;
-  loadErrors: string[] = [];
+  isProcessing = false;
 
-  mixedChartOptions: Partial<MixedChartOptions> = {};
-  statusDonutOptions: Partial<DonutChartOptions> = {};
-  categoryBarOptions: Partial<BarChartOptions> = {};
+  selectedRecordIds = new Set<string>();
 
-  private subscriptions: Subscription[] = [];
+  private unsubscribers: Array<() => void> = [];
+  private loadedCollections = new Set<string>();
 
   constructor(
-    private attendanceService: Attendance,
-    private sessionService: Session,
-    private assignmentService: AssignmentService,
-    private studentService: StudentService,
-    private facultyService: FacultyService,
-    private sectionService: SectionService,
-    private subjectService: SubjectService,
+    private firestore: Firestore,
     private authService: AuthService,
   ) {}
 
   ngOnInit(): void {
     this.currentUser = this.authService.getCurrentUser();
-    this.loadReportData();
+    this.loadRealtimeData();
   }
 
   ngOnDestroy(): void {
-    this.subscriptions.forEach((sub) => sub.unsubscribe());
+    this.unsubscribers.forEach((unsubscribe) => unsubscribe());
   }
 
-  get isAdmin(): boolean {
-    return this.currentUser?.role === 'admin';
+  get isFacultyView(): boolean {
+    const role = this.normalize(this.currentUser?.role);
+    return role === 'teacher' || role === 'faculty';
   }
 
-  get isFaculty(): boolean {
-    return this.currentUser?.role === 'teacher';
+  get isAdminView(): boolean {
+    return this.normalize(this.currentUser?.role) === 'admin';
   }
 
-  get pageTitle(): string {
-    return this.isAdmin ? 'System Reports' : 'Faculty Reports';
+  get scopedRecords(): any[] {
+    if (this.isAdminView) return this.attendanceRecords;
+
+    return this.attendanceRecords.filter((record) => this.isRecordHandledByCurrentFaculty(record));
   }
 
-  get pageSubtitle(): string {
-    return this.isAdmin
-      ? 'Monitor overall attendance records, sessions, faculty activity, sections, subjects, and institutional summaries.'
-      : 'Review attendance reports only for your handled sessions, classes, subjects, and students.';
+  get activeRecords(): any[] {
+    return this.scopedRecords.filter((record) => !record.isTrashed);
   }
 
-  get currentFacultyRecord(): Faculty | undefined {
-    if (!this.currentUser) return undefined;
+  get trashRecords(): any[] {
+    return this.scopedRecords.filter((record) => record.isTrashed === true);
+  }
 
-    const userValues = [
-      this.currentUser.id,
-      this.currentUser.username,
-      this.currentUser.email,
-      this.currentUser.fullName,
-    ]
-      .filter(Boolean)
-      .map((value) => String(value).toLowerCase());
+  get sourceRecords(): any[] {
+    return this.activeTab === 'trash' ? this.trashRecords : this.activeRecords;
+  }
 
-    return this.faculty.find((item: any) => {
-      const facultyValues = [
-        item.id,
-        item.facultyId,
-        item.email,
-        item.fullName,
-        item.username,
-        item.userId,
-      ]
-        .filter(Boolean)
-        .map((value) => String(value).toLowerCase());
+  get filteredRecords(): any[] {
+    return this.sourceRecords
+      .filter((record) => this.matchesSearch(record))
+      .filter((record) => this.matchesStatus(record))
+      .filter((record) => this.matchesSubject(record))
+      .filter((record) => this.matchesSection(record))
+      .filter((record) => this.matchesMonth(record))
+      .filter((record) => this.matchesYear(record))
+      .sort((a, b) => this.getRecordTime(b) - this.getRecordTime(a));
+  }
 
-      return facultyValues.some((value) => userValues.includes(value));
+  get monitoringSourceRecords(): any[] {
+    return this.activeRecords
+      .filter((record) => this.matchesSubject(record))
+      .filter((record) => this.matchesSection(record))
+      .filter((record) => this.matchesMonth(record))
+      .filter((record) => this.matchesYear(record));
+  }
+
+  get studentsNeedingMonitoring(): any[] {
+    const grouped = new Map<string, any>();
+
+    this.monitoringSourceRecords.forEach((record) => {
+      const studentId = String(record.studentId || '').trim();
+      const subject = this.getSubjectLabel(record);
+      const section = this.getSectionLabel(record);
+
+      if (!studentId) return;
+
+      const key = `${studentId}_${subject}_${section}`;
+
+      if (!grouped.has(key)) {
+        grouped.set(key, {
+          studentId,
+          studentName: record.studentName || this.findStudentName(studentId),
+          subject,
+          section,
+          presentCount: 0,
+          lateCount: 0,
+          absentCount: 0,
+          excusedCount: 0,
+          totalRecords: 0,
+          latestAbsence: '',
+        });
+      }
+
+      const item = grouped.get(key);
+      const status = this.normalize(record.status);
+
+      item.totalRecords += 1;
+
+      if (status === 'present') item.presentCount += 1;
+      if (status === 'late') item.lateCount += 1;
+      if (status === 'excused') item.excusedCount += 1;
+
+      if (status === 'absent') {
+        item.absentCount += 1;
+
+        const currentTime = this.getRecordTime(record);
+        const latestTime = this.parseDate(item.latestAbsence)?.getTime() || 0;
+
+        if (currentTime > latestTime) {
+          item.latestAbsence = this.getRecordDateValue(record);
+        }
+      }
     });
+
+    return Array.from(grouped.values())
+      .filter((item) => item.absentCount > 0)
+      .sort((a, b) => {
+        if (b.absentCount !== a.absentCount) return b.absentCount - a.absentCount;
+        return b.lateCount - a.lateCount;
+      })
+      .slice(0, 10);
   }
 
-  get facultyIdentityKeys(): string[] {
-    return [
-      this.currentUser?.id,
-      this.currentUser?.username,
-      this.currentUser?.email,
-      this.currentUser?.fullName,
-      this.currentFacultyRecord?.id,
-      this.currentFacultyRecord?.facultyId,
-      this.currentFacultyRecord?.email,
-      this.currentFacultyRecord?.fullName,
-    ]
-      .filter(Boolean)
-      .map((value) => String(value).toLowerCase());
+  get topMonitoringStudent(): any | null {
+    return this.studentsNeedingMonitoring[0] || null;
   }
 
-  get enrichedAttendanceRecords(): AttendanceRecord[] {
-    return this.attendanceRecords.map((record) => {
-      const session = this.sessions.find((item) => item.id === record.sessionId);
-
-      const assignment = this.assignments.find(
-        (item: any) => item.id === record.assignmentId || item.id === session?.assignmentId,
-      );
-
-      const student =
-        this.students.find((item) => item.studentId === record.studentId) ||
-        this.students.find((item) => item.id === record.studentDocId);
-
-      const faculty =
-        this.faculty.find((item) => item.facultyId === record.facultyId) ||
-        this.faculty.find((item: any) => item.id === record.facultyId) ||
-        this.faculty.find((item: any) => item.facultyId === assignment?.facultyEmployeeId) ||
-        this.faculty.find((item: any) => item.id === assignment?.facultyId);
-
-      return {
-        ...record,
-        studentName: record.studentName || student?.fullName || 'Unknown Student',
-        facultyId:
-          record.facultyId ||
-          (assignment as any)?.facultyEmployeeId ||
-          (assignment as any)?.facultyId ||
-          session?.facultyId ||
-          '',
-        facultyName:
-          record.facultyName ||
-          (assignment as any)?.facultyName ||
-          session?.facultyName ||
-          faculty?.fullName ||
-          'N/A',
-        subjectCode:
-          record.subjectCode || (assignment as any)?.subjectCode || session?.subjectCode || '',
-        subjectName:
-          record.subjectName || (assignment as any)?.subjectName || session?.subjectName || '',
-        sectionCode:
-          record.sectionCode || (assignment as any)?.sectionCode || session?.sectionCode || '',
-        program: record.program || (assignment as any)?.program || student?.program || '',
-        yearLevel: record.yearLevel || (assignment as any)?.yearLevel || student?.yearLevel || '',
-        schoolYear:
-          record.schoolYear || (assignment as any)?.schoolYear || session?.schoolYear || '',
-        semester: record.semester || (assignment as any)?.semester || session?.semester || '',
-      };
-    });
+  get totalActiveRecords(): number {
+    return this.activeRecords.length;
   }
 
-  get roleScopedRecords(): AttendanceRecord[] {
-    if (this.isAdmin) return this.enrichedAttendanceRecords;
-    if (!this.isFaculty) return [];
-
-    const keys = this.facultyIdentityKeys;
-
-    return this.enrichedAttendanceRecords.filter((record) => {
-      const session = this.sessions.find((item) => item.id === record.sessionId);
-
-      const values = [
-        record.facultyId,
-        record.facultyName,
-        session?.facultyId,
-        session?.facultyName,
-      ]
-        .filter(Boolean)
-        .map((value) => String(value).toLowerCase());
-
-      return values.some((value) => keys.includes(value));
-    });
+  get totalTrashRecords(): number {
+    return this.trashRecords.length;
   }
 
-  get filteredRecords(): AttendanceRecord[] {
-    const keyword = this.searchTerm.trim().toLowerCase();
-
-    return this.roleScopedRecords.filter((record) => {
-      const recordDate = this.getRecordDateOnly(record.createdAt);
-
-      const matchesSearch =
-        !keyword ||
-        [
-          record.studentId,
-          record.studentName,
-          record.facultyName,
-          record.subjectCode,
-          record.subjectName,
-          record.sectionCode,
-          record.program,
-          record.yearLevel,
-          record.schoolYear,
-          record.semester,
-          record.status,
-          record.method,
-          record.remarks,
-        ]
-          .filter(Boolean)
-          .join(' ')
-          .toLowerCase()
-          .includes(keyword);
-
-      const matchesStatus =
-        this.selectedStatus === 'all' ||
-        (record.status || '').toLowerCase() === this.selectedStatus;
-
-      const matchesSection =
-        this.selectedSection === 'all' || record.sectionCode === this.selectedSection;
-
-      const matchesSubject =
-        this.selectedSubject === 'all' || record.subjectCode === this.selectedSubject;
-
-      const matchesFaculty =
-        !this.isAdmin ||
-        this.selectedFaculty === 'all' ||
-        record.facultyId === this.selectedFaculty ||
-        record.facultyName === this.selectedFaculty;
-
-      const matchesDateFrom = !this.selectedDateFrom || recordDate >= this.selectedDateFrom;
-      const matchesDateTo = !this.selectedDateTo || recordDate <= this.selectedDateTo;
-
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesSection &&
-        matchesSubject &&
-        matchesFaculty &&
-        matchesDateFrom &&
-        matchesDateTo
-      );
-    });
-  }
-
-  get reportRows(): ReportRow[] {
-    return this.filteredRecords.map((record) => {
-      const dateValue = record.createdAt ? new Date(record.createdAt) : null;
-
-      return {
-        id: record.id || '',
-        date: dateValue ? dateValue.toLocaleDateString() : 'N/A',
-        time: dateValue
-          ? dateValue.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          : 'N/A',
-        studentId: record.studentId || 'N/A',
-        studentName: record.studentName || 'Unknown Student',
-        facultyName: record.facultyName || 'N/A',
-        subject: `${record.subjectCode || ''} ${record.subjectName || ''}`.trim() || 'N/A',
-        section: record.sectionCode || 'N/A',
-        status: this.formatStatus(record.status || 'N/A'),
-        method: this.formatMethod(record.method || 'N/A'),
-        remarks: record.remarks || '—',
-        sessionCode: this.getSessionCode(record.sessionId),
-      };
-    });
-  }
-
-  get totalRecords(): number {
+  get totalFilteredRecords(): number {
     return this.filteredRecords.length;
   }
 
   get presentCount(): number {
-    return this.countByStatus('present');
+    return this.activeRecords.filter((record) => this.normalize(record.status) === 'present')
+      .length;
   }
 
   get lateCount(): number {
-    return this.countByStatus('late');
+    return this.activeRecords.filter((record) => this.normalize(record.status) === 'late').length;
   }
 
   get absentCount(): number {
-    return this.countByStatus('absent');
+    return this.activeRecords.filter((record) => this.normalize(record.status) === 'absent').length;
   }
 
   get excusedCount(): number {
-    return this.countByStatus('excused');
+    return this.activeRecords.filter((record) => this.normalize(record.status) === 'excused')
+      .length;
   }
 
-  get attendanceRate(): number {
-    if (this.totalRecords === 0) return 0;
-    const attended = this.presentCount + this.lateCount + this.excusedCount;
-    return Math.round((attended / this.totalRecords) * 100);
+  get availableSubjects(): string[] {
+    return Array.from(
+      new Set(
+        this.scopedRecords
+          .map((record) => this.getSubjectLabel(record))
+          .filter((value) => value && value !== 'N/A'),
+      ),
+    ).sort();
   }
 
-  get totalSessions(): number {
-    if (this.isAdmin) return this.sessions.length;
+  get availableSections(): string[] {
+    return Array.from(
+      new Set(
+        this.scopedRecords
+          .map((record) => this.getSectionLabel(record))
+          .filter((value) => value && value !== 'N/A'),
+      ),
+    ).sort();
+  }
 
-    const keys = this.facultyIdentityKeys;
+  get availableYears(): string[] {
+    return Array.from(
+      new Set(
+        this.scopedRecords
+          .map((record) => {
+            const date = this.parseDate(this.getRecordDateValue(record));
+            return date ? String(date.getFullYear()) : '';
+          })
+          .filter(Boolean),
+      ),
+    ).sort((a, b) => Number(b) - Number(a));
+  }
 
-    return this.sessions.filter((session) =>
-      [session.facultyId, session.facultyName]
-        .filter(Boolean)
-        .map((value) => String(value).toLowerCase())
-        .some((value) => keys.includes(value)),
+  get selectedVisibleCount(): number {
+    return this.filteredRecords.filter(
+      (record) => record.id && this.selectedRecordIds.has(record.id),
     ).length;
   }
 
-  get activeSessions(): number {
-    const source = this.isAdmin
-      ? this.sessions
-      : this.sessions.filter((session) =>
-          [session.facultyId, session.facultyName]
-            .filter(Boolean)
-            .map((value) => String(value).toLowerCase())
-            .some((value) => this.facultyIdentityKeys.includes(value)),
-        );
-
-    return source.filter((session) => String(session.status || '').toLowerCase() === 'active')
-      .length;
+  get hasSelectedRecords(): boolean {
+    return this.selectedVisibleCount > 0;
   }
 
-  get sectionOptions(): string[] {
-    const fromRecords = this.roleScopedRecords
-      .map((record) => record.sectionCode)
-      .filter(Boolean) as string[];
+  get allVisibleSelected(): boolean {
+    const visibleIds = this.filteredRecords.map((record) => record.id).filter(Boolean);
 
-    return Array.from(new Set(fromRecords)).sort();
+    if (visibleIds.length === 0) return false;
+
+    return visibleIds.every((id) => this.selectedRecordIds.has(id));
   }
 
-  get subjectOptions(): string[] {
-    const fromRecords = this.roleScopedRecords
-      .map((record) => record.subjectCode)
-      .filter(Boolean) as string[];
-
-    return Array.from(new Set(fromRecords)).sort();
-  }
-
-  get facultyOptions(): Faculty[] {
-    return this.faculty
-      .filter((item) => !item.isArchived)
-      .sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
-  }
-
-  loadReportData(): void {
+  loadRealtimeData(): void {
     this.isLoading = true;
-    this.loadErrors = [];
 
-    let completed = 0;
-    const totalSources = 7;
+    this.listenToCollection('attendance', (data) => {
+      this.attendanceRecords = data;
+      this.cleanSelections();
+      this.markCollectionLoaded('attendance');
+    });
 
-    const finishOne = () => {
-      completed += 1;
+    this.listenToCollection('assignments', (data) => {
+      this.assignments = data;
+      this.markCollectionLoaded('assignments');
+    });
 
-      if (completed === totalSources) {
-        this.isLoading = false;
-        this.refreshCharts();
+    this.listenToCollection('students', (data) => {
+      this.students = data;
+      this.markCollectionLoaded('students');
+    });
 
-        if (this.loadErrors.length > 0) {
-          Swal.fire({
-            title: 'Some Report Data Failed to Load',
-            html: `
-              <p>The report page loaded, but these source(s) failed:</p>
-              <ul style="text-align:left;">
-                ${this.loadErrors.map((item) => `<li>${item}</li>`).join('')}
-              </ul>
-            `,
-            icon: 'warning',
-            confirmButtonColor: '#4f46e5',
-          });
-        }
-      }
-    };
-
-    this.subscriptions.push(
-      this.attendanceService.getAttendanceRecords().subscribe({
-        next: (data) => {
-          this.attendanceRecords = data || [];
-          finishOne();
-        },
-        error: (error) => {
-          this.recordLoadError('Attendance Records', error);
-          finishOne();
-        },
-      }),
-
-      this.sessionService.getSessions().subscribe({
-        next: (data) => {
-          this.sessions = data || [];
-          finishOne();
-        },
-        error: (error) => {
-          this.recordLoadError('Sessions', error);
-          finishOne();
-        },
-      }),
-
-      this.assignmentService.getAssignments().subscribe({
-        next: (data) => {
-          this.assignments = data || [];
-          finishOne();
-        },
-        error: (error) => {
-          this.recordLoadError('Assignments', error);
-          finishOne();
-        },
-      }),
-
-      this.studentService.getStudents().subscribe({
-        next: (data) => {
-          this.students = data || [];
-          finishOne();
-        },
-        error: (error) => {
-          this.recordLoadError('Students', error);
-          finishOne();
-        },
-      }),
-
-      this.facultyService.getFaculty().subscribe({
-        next: (data) => {
-          this.faculty = data || [];
-          finishOne();
-        },
-        error: (error) => {
-          this.recordLoadError('Faculty', error);
-          finishOne();
-        },
-      }),
-
-      this.sectionService.getSections().subscribe({
-        next: (data) => {
-          this.sections = data || [];
-          finishOne();
-        },
-        error: (error) => {
-          this.recordLoadError('Sections', error);
-          finishOne();
-        },
-      }),
-
-      this.subjectService.getSubjects().subscribe({
-        next: (data) => {
-          this.subjects = data || [];
-          finishOne();
-        },
-        error: (error) => {
-          this.recordLoadError('Subjects', error);
-          finishOne();
-        },
-      }),
-    );
+    this.listenToCollection('sessions', (data) => {
+      this.sessions = data;
+      this.markCollectionLoaded('sessions');
+    });
   }
 
-  refreshCharts(): void {
-    const trend = this.buildTrendData();
-    const categoryData = this.isAdmin
-      ? this.buildCategoryData('sectionCode', 8)
-      : this.buildCategoryData('subjectCode', 8);
-
-    this.mixedChartOptions = {
-      series: [
-        {
-          name: 'Attendance Records',
-          type: 'column',
-          data: trend.map((item) => item.total),
-        },
-        {
-          name: 'Attendance Rate',
-          type: 'line',
-          data: trend.map((item) => item.rate),
-        },
-      ],
-      chart: {
-        height: 340,
-        type: 'line',
-        toolbar: { show: false },
-        zoom: { enabled: false },
-      },
-      stroke: {
-        width: [0, 4],
-        curve: 'smooth',
-      },
-      dataLabels: {
-        enabled: false,
-      },
-      plotOptions: {
-        bar: {
-          columnWidth: '45%',
-          borderRadius: 6,
-        },
-      },
-      fill: {
-        opacity: [0.9, 1],
-      },
-      xaxis: {
-        categories: trend.map((item) => item.label),
-      },
-      yaxis: [
-        {
-          title: { text: 'Records' },
-        },
-        {
-          opposite: true,
-          min: 0,
-          max: 100,
-          title: { text: 'Rate (%)' },
-          labels: {
-            formatter: (value) => `${Math.round(value)}%`,
-          },
-        },
-      ],
-      legend: {
-        position: 'top',
-      },
-      grid: {
-        borderColor: '#e5e7eb',
-        strokeDashArray: 4,
-      },
-      tooltip: {
-        shared: true,
-        intersect: false,
-      },
-    };
-
-    this.statusDonutOptions = {
-      series: [this.presentCount, this.lateCount, this.absentCount, this.excusedCount],
-      chart: {
-        type: 'donut',
-        height: 330,
-      },
-      labels: ['Present', 'Late', 'Absent', 'Excused'],
-      legend: {
-        position: 'bottom',
-      },
-      dataLabels: {
-        enabled: true,
-      },
-      tooltip: {
-        y: {
-          formatter: (value) => `${value} record(s)`,
-        },
-      },
-      responsive: [
-        {
-          breakpoint: 768,
-          options: {
-            chart: { height: 280 },
-            legend: { position: 'bottom' },
-          },
-        },
-      ],
-    };
-
-    this.categoryBarOptions = {
-      series: [
-        {
-          name: 'Records',
-          data: categoryData.map((item) => item.value),
-        },
-      ],
-      chart: {
-        type: 'bar',
-        height: 330,
-        toolbar: { show: false },
-      },
-      plotOptions: {
-        bar: {
-          horizontal: true,
-          borderRadius: 6,
-        },
-      },
-      dataLabels: {
-        enabled: false,
-      },
-      xaxis: {
-        categories: categoryData.map((item) => item.label),
-      },
-      yaxis: {
-        labels: {
-          style: {
-            fontSize: '12px',
-          },
-        },
-      },
-      grid: {
-        borderColor: '#e5e7eb',
-        strokeDashArray: 4,
-      },
-      tooltip: {
-        y: {
-          formatter: (value) => `${value} record(s)`,
-        },
-      },
-    };
+  setActiveTab(tab: ReportTab): void {
+    this.activeTab = tab;
+    this.selectedRecordIds.clear();
   }
 
-  clearFilters(): void {
+  resetFilters(): void {
     this.searchTerm = '';
-    this.selectedStatus = 'all';
-    this.selectedSection = 'all';
-    this.selectedSubject = 'all';
-    this.selectedFaculty = 'all';
-    this.selectedDateFrom = '';
-    this.selectedDateTo = '';
-    this.refreshCharts();
+    this.statusFilter = 'all';
+    this.subjectFilter = 'all';
+    this.sectionFilter = 'all';
+    this.monthFilter = 'all';
+    this.yearFilter = 'all';
+    this.selectedRecordIds.clear();
   }
 
-  exportExcel(): void {
-    if (this.reportRows.length === 0) {
-      Swal.fire({
-        title: 'No Records',
-        text: 'There are no filtered records to export.',
-        icon: 'info',
-        confirmButtonColor: '#4f46e5',
-      });
-      return;
+  toggleSelectRecord(recordId: string | undefined, checked: boolean): void {
+    if (!recordId) return;
+
+    if (checked) {
+      this.selectedRecordIds.add(recordId);
+    } else {
+      this.selectedRecordIds.delete(recordId);
     }
-
-    const exportData = this.reportRows.map((row, index) => ({
-      No: index + 1,
-      Date: row.date,
-      Time: row.time,
-      'Student ID': row.studentId,
-      'Student Name': row.studentName,
-      Faculty: row.facultyName,
-      Subject: row.subject,
-      Section: row.section,
-      Status: row.status,
-      Method: row.method,
-      Remarks: row.remarks,
-      'Session Code': row.sessionCode,
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
-    const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      this.isAdmin ? 'Admin Report' : 'Faculty Report',
-    );
-
-    XLSX.writeFile(
-      workbook,
-      `${this.isAdmin ? 'SAMS2_Admin_Report' : 'SAMS2_Faculty_Report'}_${this.getTodayFileName()}.xlsx`,
-    );
   }
 
-  exportPdf(): void {
-    if (this.reportRows.length === 0) {
-      Swal.fire({
-        title: 'No Records',
-        text: 'There are no filtered records to print or save as PDF.',
-        icon: 'info',
-        confirmButtonColor: '#4f46e5',
-      });
-      return;
-    }
-
-    window.print();
-  }
-
-  onFilterChange(): void {
-    setTimeout(() => this.refreshCharts());
-  }
-
-  formatStatus(status: string): string {
-    if (!status) return 'N/A';
-    return status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
-  }
-
-  formatMethod(method: string): string {
-    if (!method) return 'N/A';
-
-    return method
-      .replace(/_/g, ' ')
-      .split(' ')
-      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
-      .join(' ');
-  }
-
-  getStatusClass(status: string | undefined): string {
-    const value = (status || '').toLowerCase();
-
-    if (value === 'present') return 'present';
-    if (value === 'late') return 'late';
-    if (value === 'absent') return 'absent';
-    if (value === 'excused') return 'excused';
-
-    return '';
-  }
-
-  private countByStatus(status: AttendanceStatus): number {
-    return this.filteredRecords.filter((record) => (record.status || '').toLowerCase() === status)
-      .length;
-  }
-
-  private buildTrendData(): { label: string; total: number; rate: number }[] {
-    const map = new Map<
-      string,
-      { total: number; present: number; late: number; excused: number }
-    >();
-
+  toggleSelectAllVisible(checked: boolean): void {
     this.filteredRecords.forEach((record) => {
-      const date = this.getRecordDateOnly(record.createdAt);
-      if (!date) return;
+      if (!record.id) return;
 
-      if (!map.has(date)) {
-        map.set(date, {
-          total: 0,
-          present: 0,
-          late: 0,
-          excused: 0,
-        });
+      if (checked) {
+        this.selectedRecordIds.add(record.id);
+      } else {
+        this.selectedRecordIds.delete(record.id);
       }
+    });
+  }
 
-      const item = map.get(date)!;
-      const status = String(record.status || '').toLowerCase();
+  isRecordSelected(recordId: string | undefined): boolean {
+    if (!recordId) return false;
+    return this.selectedRecordIds.has(recordId);
+  }
 
-      item.total += 1;
+  async moveSelectedToTrash(): Promise<void> {
+    const selectedRecords = this.filteredRecords.filter(
+      (record) => record.id && this.selectedRecordIds.has(record.id),
+    );
 
-      if (status === 'present') item.present += 1;
-      if (status === 'late') item.late += 1;
-      if (status === 'excused') item.excused += 1;
+    if (this.isProcessing || selectedRecords.length === 0 || this.activeTab !== 'records') return;
+
+    const result = await Swal.fire({
+      title: 'Move selected records to Trash?',
+      text: `${selectedRecords.length} record(s) will be hidden from active reports but can still be restored.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Move to Trash',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
     });
 
-    const rows = Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .slice(-7)
-      .map(([date, value]) => {
-        const attended = value.present + value.late + value.excused;
+    if (!result.isConfirmed) return;
 
-        return {
-          label: new Date(date).toLocaleDateString(undefined, {
-            month: 'short',
-            day: 'numeric',
-          }),
-          total: value.total,
-          rate: value.total > 0 ? Math.round((attended / value.total) * 100) : 0,
-        };
+    await this.moveRecordsToTrash(selectedRecords);
+  }
+
+  async moveFilteredToTrash(): Promise<void> {
+    const records = this.filteredRecords.filter((record) => record.id);
+
+    if (this.isProcessing || records.length === 0 || this.activeTab !== 'records') return;
+
+    const result = await Swal.fire({
+      title: 'Move all filtered records to Trash?',
+      text: `${records.length} visible filtered record(s) will be moved to Trash.`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Move filtered records',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    });
+
+    if (!result.isConfirmed) return;
+
+    await this.moveRecordsToTrash(records);
+  }
+
+  async moveOneToTrash(record: any): Promise<void> {
+    if (!record?.id || this.isProcessing) return;
+
+    const result = await Swal.fire({
+      title: 'Move this record to Trash?',
+      text: 'This record will be hidden from active reports.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Move to Trash',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    });
+
+    if (!result.isConfirmed) return;
+
+    await this.moveRecordsToTrash([record]);
+  }
+
+  async restoreSelectedRecords(): Promise<void> {
+    const selectedRecords = this.filteredRecords.filter(
+      (record) => record.id && this.selectedRecordIds.has(record.id),
+    );
+
+    if (this.isProcessing || selectedRecords.length === 0 || this.activeTab !== 'trash') return;
+
+    const result = await Swal.fire({
+      title: 'Restore selected records?',
+      text: `${selectedRecords.length} record(s) will return to active reports.`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Restore',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#4f46e5',
+    });
+
+    if (!result.isConfirmed) return;
+
+    await this.restoreRecords(selectedRecords);
+  }
+
+  async restoreOneRecord(record: any): Promise<void> {
+    if (!record?.id || this.isProcessing) return;
+
+    const result = await Swal.fire({
+      title: 'Restore this record?',
+      text: 'This record will return to active reports.',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Restore',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#4f46e5',
+    });
+
+    if (!result.isConfirmed) return;
+
+    await this.restoreRecords([record]);
+  }
+
+  async permanentlyDeleteSelectedRecords(): Promise<void> {
+    const selectedRecords = this.filteredRecords.filter(
+      (record) => record.id && this.selectedRecordIds.has(record.id),
+    );
+
+    if (this.isProcessing || selectedRecords.length === 0 || this.activeTab !== 'trash') return;
+
+    const result = await Swal.fire({
+      title: 'Permanently delete selected records?',
+      text: `${selectedRecords.length} record(s) will be permanently removed from Firebase. This cannot be undone.`,
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonText: 'Delete permanently',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    });
+
+    if (!result.isConfirmed) return;
+
+    await this.deleteRecordsPermanently(selectedRecords);
+  }
+
+  async permanentlyDeleteOneRecord(record: any): Promise<void> {
+    if (!record?.id || this.isProcessing) return;
+
+    const result = await Swal.fire({
+      title: 'Permanently delete this record?',
+      text: 'This will remove the record from Firebase permanently.',
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonText: 'Delete permanently',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    });
+
+    if (!result.isConfirmed) return;
+
+    await this.deleteRecordsPermanently([record]);
+  }
+
+  async emptyTrash(): Promise<void> {
+    const records = this.filteredRecords.filter((record) => record.id);
+
+    if (this.isProcessing || records.length === 0 || this.activeTab !== 'trash') return;
+
+    const result = await Swal.fire({
+      title: 'Empty Trash?',
+      text: `${records.length} visible trashed record(s) will be permanently deleted from Firebase.`,
+      icon: 'error',
+      showCancelButton: true,
+      confirmButtonText: 'Empty Trash',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    });
+
+    if (!result.isConfirmed) return;
+
+    await this.deleteRecordsPermanently(records);
+  }
+
+  exportCsv(): void {
+    const records = this.filteredRecords;
+
+    if (records.length === 0) {
+      Swal.fire({
+        title: 'No records to export',
+        text: 'There are no records based on the current filters.',
+        icon: 'info',
+        confirmButtonColor: '#4f46e5',
       });
+      return;
+    }
 
-    return rows.length ? rows : [{ label: 'No Data', total: 0, rate: 0 }];
+    const headers = [
+      'Date',
+      'Time',
+      'Student ID',
+      'Student Name',
+      'Subject',
+      'Section',
+      'Status',
+      'Method',
+      'Remarks',
+    ];
+
+    const rows = records.map((record) => [
+      this.formatDate(record),
+      this.formatTime(record),
+      record.studentId || '',
+      record.studentName || '',
+      this.getSubjectLabel(record),
+      this.getSectionLabel(record),
+      this.toTitleCase(record.status || ''),
+      this.formatMethod(record.method || ''),
+      record.remarks || '',
+    ]);
+
+    const csv = [headers, ...rows]
+      .map((row) => row.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    anchor.href = url;
+    anchor.download = `sams-faculty-report-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+
+    URL.revokeObjectURL(url);
   }
 
-  private buildCategoryData(
-    field: keyof AttendanceRecord,
-    limit: number,
-  ): { label: string; value: number }[] {
-    const counts = new Map<string, number>();
+  printReport(): void {
+    const records = this.filteredRecords;
 
-    this.filteredRecords.forEach((record) => {
-      const label = String(record[field] || 'Unspecified');
-      counts.set(label, (counts.get(label) || 0) + 1);
+    if (records.length === 0) {
+      Swal.fire({
+        title: 'No records to print',
+        text: 'There are no records based on the current filters.',
+        icon: 'info',
+        confirmButtonColor: '#4f46e5',
+      });
+      return;
+    }
+
+    const rows = records
+      .map(
+        (record, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${this.formatDate(record)}</td>
+            <td>${this.formatTime(record)}</td>
+            <td>${record.studentId || ''}</td>
+            <td>${record.studentName || ''}</td>
+            <td>${this.getSubjectLabel(record)}</td>
+            <td>${this.getSectionLabel(record)}</td>
+            <td>${this.toTitleCase(record.status || '')}</td>
+            <td>${this.formatMethod(record.method || '')}</td>
+            <td>${record.remarks || ''}</td>
+          </tr>
+        `,
+      )
+      .join('');
+
+    const monitoringRows = this.studentsNeedingMonitoring
+      .map(
+        (item, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${item.studentId}</td>
+            <td>${item.studentName}</td>
+            <td>${item.subject}</td>
+            <td>${item.section}</td>
+            <td>${item.absentCount}</td>
+            <td>${item.lateCount}</td>
+            <td>${item.latestAbsence ? this.formatDateValue(item.latestAbsence) : 'N/A'}</td>
+          </tr>
+        `,
+      )
+      .join('');
+
+    const printWindow = window.open('', '_blank', 'width=1200,height=800');
+
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>SAMS Faculty Attendance Report</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 24px;
+              color: #111827;
+            }
+
+            h1, h2 {
+              margin: 0 0 8px;
+            }
+
+            p {
+              margin: 0 0 20px;
+              color: #4b5563;
+            }
+
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 16px;
+              font-size: 12px;
+            }
+
+            th, td {
+              border: 1px solid #d1d5db;
+              padding: 8px;
+              text-align: left;
+              vertical-align: top;
+            }
+
+            th {
+              background: #f3f4f6;
+            }
+
+            .section {
+              margin-top: 28px;
+            }
+          </style>
+        </head>
+
+        <body>
+          <h1>SAMS Faculty Attendance Report</h1>
+          <p>Generated on ${new Date().toLocaleString()}</p>
+
+          <div class="section">
+            <h2>Students Needing Monitoring</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>No.</th>
+                  <th>Student ID</th>
+                  <th>Student Name</th>
+                  <th>Subject</th>
+                  <th>Section</th>
+                  <th>Absences</th>
+                  <th>Lates</th>
+                  <th>Latest Absence</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${
+                  monitoringRows ||
+                  '<tr><td colspan="8">No students currently need monitoring.</td></tr>'
+                }
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h2>Attendance Records</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>No.</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Student ID</th>
+                  <th>Student Name</th>
+                  <th>Subject</th>
+                  <th>Section</th>
+                  <th>Status</th>
+                  <th>Method</th>
+                  <th>Remarks</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows}
+              </tbody>
+            </table>
+          </div>
+
+          <script>
+            window.print();
+          </script>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+  }
+
+  getSubjectLabel(record: any): string {
+    const subjectCode = String(record.subjectCode || '').trim();
+    const subjectName = String(record.subjectName || '').trim();
+
+    if (subjectCode && subjectName) return `${subjectCode} — ${subjectName}`;
+    if (subjectCode) return subjectCode;
+    if (subjectName) return subjectName;
+
+    return 'N/A';
+  }
+
+  getSectionLabel(record: any): string {
+    return (
+      record.sectionCode || record.section || record.studentSection || record.classSection || 'N/A'
+    );
+  }
+
+  formatDate(record: any): string {
+    return this.formatDateValue(this.getRecordDateValue(record));
+  }
+
+  formatTime(record: any): string {
+    const directTime = String(record.time || record.timeRecorded || '').trim();
+
+    if (directTime && !this.parseDate(directTime)) {
+      return directTime;
+    }
+
+    const date = this.parseDate(this.getRecordDateValue(record));
+
+    if (!date) return directTime || 'N/A';
+
+    return date.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
     });
-
-    const rows = Array.from(counts.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, limit)
-      .map(([label, value]) => ({ label, value }));
-
-    return rows.length ? rows : [{ label: 'No Data', value: 0 }];
   }
 
-  private getSessionCode(sessionId?: string): string {
-    if (!sessionId) return 'N/A';
+  formatDateValue(value: any): string {
+    const date = this.parseDate(value);
 
-    const session = this.sessions.find((item) => item.id === sessionId);
-    return session?.sessionCode || sessionId;
+    if (!date) return 'N/A';
+
+    return date.toLocaleDateString([], {
+      month: 'numeric',
+      day: 'numeric',
+      year: 'numeric',
+    });
   }
 
-  private getRecordDateOnly(createdAt?: string): string {
-    if (!createdAt) return '';
+  formatMethod(value: string): string {
+    const methodMap: Record<string, string> = {
+      rotating_qr_or_session_code: 'QR / Session Code',
+      approved_rotating_sit_in_request: 'Approved Sit-in Request',
+      approved_sit_in_request: 'Approved Sit-in Request',
+      auto_absent_session_end: 'Auto Absent Session End',
+      imported_excel: 'Imported Excel',
+      manual: 'Manual',
+      qr: 'QR',
+    };
 
-    const date = new Date(createdAt);
-    if (Number.isNaN(date.getTime())) return '';
+    const key = this.normalize(value);
 
-    return date.toISOString().slice(0, 10);
+    return methodMap[key] || this.toTitleCase(value || 'N/A');
   }
 
-  private getTodayFileName(): string {
-    return new Date().toISOString().slice(0, 10);
+  statusClass(status: string): string {
+    return `status-${this.normalize(status || 'unknown')}`;
   }
 
-  private recordLoadError(source: string, error: any): void {
-    console.error(`${source} report load error:`, error);
-    this.loadErrors.push(source);
+  private async moveRecordsToTrash(records: any[]): Promise<void> {
+    this.isProcessing = true;
+
+    try {
+      const now = new Date().toISOString();
+
+      await Promise.all(
+        records.map((record) =>
+          updateDoc(doc(this.firestore, `attendance/${record.id}`), {
+            isTrashed: true,
+            trashedAt: now,
+            trashedBy: this.currentUser?.id || this.currentUser?.username || 'faculty',
+            trashedByName: this.currentUser?.fullName || 'Faculty',
+            updatedAt: now,
+          }),
+        ),
+      );
+
+      this.selectedRecordIds.clear();
+
+      await Swal.fire({
+        title: 'Moved to Trash',
+        text: `${records.length} record(s) were moved to Trash.`,
+        icon: 'success',
+        timer: 1400,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error(error);
+
+      await Swal.fire({
+        title: 'Move Failed',
+        text: 'Unable to move records to Trash.',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5',
+      });
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  private async restoreRecords(records: any[]): Promise<void> {
+    this.isProcessing = true;
+
+    try {
+      const now = new Date().toISOString();
+
+      await Promise.all(
+        records.map((record) =>
+          updateDoc(doc(this.firestore, `attendance/${record.id}`), {
+            isTrashed: false,
+            restoredAt: now,
+            restoredBy: this.currentUser?.id || this.currentUser?.username || 'faculty',
+            restoredByName: this.currentUser?.fullName || 'Faculty',
+            updatedAt: now,
+          }),
+        ),
+      );
+
+      this.selectedRecordIds.clear();
+
+      await Swal.fire({
+        title: 'Restored',
+        text: `${records.length} record(s) were restored.`,
+        icon: 'success',
+        timer: 1400,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error(error);
+
+      await Swal.fire({
+        title: 'Restore Failed',
+        text: 'Unable to restore records.',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5',
+      });
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  private async deleteRecordsPermanently(records: any[]): Promise<void> {
+    this.isProcessing = true;
+
+    try {
+      await Promise.all(
+        records.map((record) => deleteDoc(doc(this.firestore, `attendance/${record.id}`))),
+      );
+
+      this.selectedRecordIds.clear();
+
+      await Swal.fire({
+        title: 'Deleted',
+        text: `${records.length} record(s) were permanently deleted from Firebase.`,
+        icon: 'success',
+        timer: 1400,
+        showConfirmButton: false,
+      });
+    } catch (error) {
+      console.error(error);
+
+      await Swal.fire({
+        title: 'Delete Failed',
+        text: 'Unable to permanently delete records.',
+        icon: 'error',
+        confirmButtonColor: '#4f46e5',
+      });
+    } finally {
+      this.isProcessing = false;
+    }
+  }
+
+  private listenToCollection(collectionName: string, callback: (data: any[]) => void): void {
+    const ref = collection(this.firestore, collectionName);
+
+    const unsubscribe = onSnapshot(
+      ref,
+      (snapshot) => {
+        const data = snapshot.docs.map((docSnap) => ({
+          id: docSnap.id,
+          ...docSnap.data(),
+        }));
+
+        callback(data);
+      },
+      (error) => {
+        console.error(`${collectionName} listener error:`, error);
+        callback([]);
+      },
+    );
+
+    this.unsubscribers.push(unsubscribe);
+  }
+
+  private markCollectionLoaded(collectionName: string): void {
+    this.loadedCollections.add(collectionName);
+
+    if (this.loadedCollections.size >= 4) {
+      this.isLoading = false;
+    }
+  }
+
+  private cleanSelections(): void {
+    const recordIds = new Set(this.attendanceRecords.map((record) => record.id).filter(Boolean));
+
+    this.selectedRecordIds.forEach((id) => {
+      if (!recordIds.has(id)) {
+        this.selectedRecordIds.delete(id);
+      }
+    });
+  }
+
+  private isRecordHandledByCurrentFaculty(record: any): boolean {
+    if (!this.currentUser) return true;
+
+    const userId = this.normalize(this.currentUser.id);
+    const username = this.normalize(this.currentUser.username);
+    const fullName = this.normalize(this.currentUser.fullName || this.currentUser.name);
+    const employeeId = this.normalize(
+      this.currentUser.employeeId || this.currentUser.facultyEmployeeId,
+    );
+
+    const recordFacultyId = this.normalize(
+      record.facultyId || record.teacherId || record.instructorId || record.createdBy,
+    );
+
+    const recordFacultyName = this.normalize(
+      record.facultyName || record.teacherName || record.instructorName,
+    );
+
+    if (
+      (!!recordFacultyId && recordFacultyId === userId) ||
+      (!!recordFacultyId && recordFacultyId === username) ||
+      (!!recordFacultyId && recordFacultyId === employeeId) ||
+      (!!recordFacultyName && recordFacultyName === fullName)
+    ) {
+      return true;
+    }
+
+    return this.assignments.some((assignment) => {
+      if (!this.isAssignmentHandledByCurrentFaculty(assignment)) return false;
+
+      const assignmentId = this.normalize(assignment.id);
+      const assignmentCode = this.normalize(assignment.assignmentCode);
+
+      const recordAssignmentId = this.normalize(record.assignmentId || record.classOfferingId);
+      const recordAssignmentCode = this.normalize(record.assignmentCode);
+
+      const directAssignmentMatch =
+        (!!assignmentId && !!recordAssignmentId && assignmentId === recordAssignmentId) ||
+        (!!assignmentCode && !!recordAssignmentCode && assignmentCode === recordAssignmentCode);
+
+      if (directAssignmentMatch) return true;
+
+      const sameSubject =
+        this.normalize(assignment.subjectCode) === this.normalize(record.subjectCode) ||
+        this.normalize(assignment.subjectName) === this.normalize(record.subjectName);
+
+      const sameSection = this.sectionsMatch(assignment.sectionCode, this.getSectionLabel(record));
+
+      const sameSemester =
+        !assignment.semester ||
+        !record.semester ||
+        this.normalize(assignment.semester) === this.normalize(record.semester);
+
+      return sameSubject && sameSection && sameSemester;
+    });
+  }
+
+  private isAssignmentHandledByCurrentFaculty(assignment: any): boolean {
+    if (!this.currentUser) return false;
+
+    const userId = this.normalize(this.currentUser.id);
+    const username = this.normalize(this.currentUser.username);
+    const fullName = this.normalize(this.currentUser.fullName || this.currentUser.name);
+    const employeeId = this.normalize(
+      this.currentUser.employeeId || this.currentUser.facultyEmployeeId,
+    );
+
+    const assignmentFacultyId = this.normalize(
+      assignment.facultyId || assignment.teacherId || assignment.instructorId,
+    );
+
+    const assignmentFacultyEmployeeId = this.normalize(assignment.facultyEmployeeId);
+    const assignmentFacultyName = this.normalize(
+      assignment.facultyName || assignment.teacherName || assignment.instructorName,
+    );
+
+    return (
+      (!!assignmentFacultyId && assignmentFacultyId === userId) ||
+      (!!assignmentFacultyId && assignmentFacultyId === username) ||
+      (!!assignmentFacultyId && assignmentFacultyId === employeeId) ||
+      (!!assignmentFacultyEmployeeId && assignmentFacultyEmployeeId === username) ||
+      (!!assignmentFacultyEmployeeId && assignmentFacultyEmployeeId === employeeId) ||
+      (!!assignmentFacultyName && assignmentFacultyName === fullName)
+    );
+  }
+
+  private matchesSearch(record: any): boolean {
+    const keyword = this.searchTerm.trim().toLowerCase();
+
+    if (!keyword) return true;
+
+    return [
+      record.studentId,
+      record.studentName,
+      this.getSubjectLabel(record),
+      this.getSectionLabel(record),
+      record.status,
+      record.method,
+      record.remarks,
+    ]
+      .join(' ')
+      .toLowerCase()
+      .includes(keyword);
+  }
+
+  private matchesStatus(record: any): boolean {
+    if (this.statusFilter === 'all') return true;
+
+    return this.normalize(record.status) === this.normalize(this.statusFilter);
+  }
+
+  private matchesSubject(record: any): boolean {
+    if (this.subjectFilter === 'all') return true;
+
+    return this.getSubjectLabel(record) === this.subjectFilter;
+  }
+
+  private matchesSection(record: any): boolean {
+    if (this.sectionFilter === 'all') return true;
+
+    return this.getSectionLabel(record) === this.sectionFilter;
+  }
+
+  private matchesMonth(record: any): boolean {
+    if (this.monthFilter === 'all') return true;
+
+    const date = this.parseDate(this.getRecordDateValue(record));
+
+    if (!date) return false;
+
+    return String(date.getMonth() + 1) === String(this.monthFilter);
+  }
+
+  private matchesYear(record: any): boolean {
+    if (this.yearFilter === 'all') return true;
+
+    const date = this.parseDate(this.getRecordDateValue(record));
+
+    if (!date) return false;
+
+    return String(date.getFullYear()) === String(this.yearFilter);
+  }
+
+  private findStudentName(studentId: string): string {
+    const student = this.students.find(
+      (item) => this.normalize(item.studentId) === this.normalize(studentId),
+    );
+
+    return student?.fullName || studentId || 'Unknown Student';
+  }
+
+  private getRecordDateValue(record: any): any {
+    return (
+      record.submittedAt ||
+      record.generatedAt ||
+      record.timeRecorded ||
+      record.createdAt ||
+      record.updatedAt ||
+      record.date ||
+      ''
+    );
+  }
+
+  private getRecordTime(record: any): number {
+    return (
+      this.parseDate(record.submittedAt)?.getTime() ||
+      this.parseDate(record.generatedAt)?.getTime() ||
+      this.parseDate(record.timeRecorded)?.getTime() ||
+      this.parseDate(record.createdAt)?.getTime() ||
+      this.parseDate(record.updatedAt)?.getTime() ||
+      this.parseDate(record.date)?.getTime() ||
+      0
+    );
+  }
+
+  private parseDate(value: any): Date | null {
+    if (!value) return null;
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      return value;
+    }
+
+    if (typeof value?.toDate === 'function') {
+      const date = value.toDate();
+      return date instanceof Date && !Number.isNaN(date.getTime()) ? date : null;
+    }
+
+    if (typeof value === 'object' && typeof value.seconds === 'number') {
+      const date = new Date(value.seconds * 1000);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+
+  private sectionsMatch(firstValue: any, secondValue: any): boolean {
+    const first = this.normalizeSection(firstValue);
+    const second = this.normalizeSection(secondValue);
+
+    if (!first || !second) return false;
+
+    return first === second || first.includes(second) || second.includes(first);
+  }
+
+  private normalizeSection(value: any): string {
+    return this.normalize(value)
+      .replace(/\s+/g, '')
+      .replace(/-/g, '')
+      .replace(/_/g, '')
+      .replace('section', '')
+      .replace(/^bsit/, '')
+      .replace(/^it/, '')
+      .replace(/^tcm/, '')
+      .replace(/^emt/, '');
+  }
+
+  private normalize(value: any): string {
+    return String(value || '')
+      .trim()
+      .toLowerCase();
+  }
+
+  private toTitleCase(value: string): string {
+    return String(value || '')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
   }
 }

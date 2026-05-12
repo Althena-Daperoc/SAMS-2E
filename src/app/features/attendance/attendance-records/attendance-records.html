@@ -1,43 +1,68 @@
 <div class="records-page">
-  <section class="top-card">
-    <div>
-      <p class="eyebrow">Faculty Attendance</p>
+  <section class="records-hero">
+    <div class="hero-copy">
+      <span>Faculty Attendance</span>
       <h1>Attendance Records</h1>
-      <p>Manage requests, records, and class roster in one place.</p>
+      <p>
+        Manage requests, attendance records, class roster, and auto-absent monitoring by exact
+        session.
+      </p>
     </div>
 
-    <div class="quick-stats">
-      <article>
+    <div class="hero-stats">
+      <div class="stat-card pending">
         <span>Pending</span>
         <strong>{{ totalPending }}</strong>
-      </article>
+      </div>
 
-      <article>
+      <div class="stat-card records">
         <span>Records</span>
         <strong>{{ totalRecords }}</strong>
-      </article>
+      </div>
 
-      <article>
+      <div class="stat-card roster">
         <span>Roster</span>
         <strong>{{ totalRoster }}</strong>
-      </article>
+      </div>
     </div>
   </section>
 
   <section class="filter-card">
-    <div class="field">
-      <label>Class</label>
-      <select [(ngModel)]="selectedAssignmentId" (change)="selectAssignment(selectedAssignmentId)">
-        <option value="">All handled classes</option>
+    <div class="filter-group class-filter">
+      <label for="assignmentSelect">Class</label>
+      <select
+        id="assignmentSelect"
+        name="assignmentSelect"
+        [(ngModel)]="selectedAssignmentId"
+        (ngModelChange)="selectAssignment($event)"
+      >
+        <option value="">All assigned classes</option>
         <option *ngFor="let assignment of teacherAssignments" [value]="assignment.id">
           {{ assignment.subjectCode }} — {{ assignment.sectionCode }} • {{ assignment.semester }}
         </option>
       </select>
     </div>
 
-    <div class="field">
-      <label>Search</label>
+    <div class="filter-group session-filter">
+      <label for="sessionSelect">Session</label>
+      <select
+        id="sessionSelect"
+        name="sessionSelect"
+        [(ngModel)]="selectedSessionId"
+        (ngModelChange)="selectSession($event)"
+      >
+        <option value="">All sessions for selected class</option>
+        <option *ngFor="let session of classSessions" [value]="session.id">
+          {{ formatSessionLabel(session) }}
+        </option>
+      </select>
+    </div>
+
+    <div class="filter-group search-filter">
+      <label for="searchTerm">Search</label>
       <input
+        id="searchTerm"
+        name="searchTerm"
         type="text"
         [(ngModel)]="searchTerm"
         placeholder="Search student, subject, status..."
@@ -45,39 +70,45 @@
     </div>
   </section>
 
-  <section class="class-card" *ngIf="selectedAssignment">
+  <section class="selected-class-card" *ngIf="selectedAssignment as assignment">
     <div>
       <span>Selected Class</span>
-      <strong>{{ selectedAssignment.subjectCode }} — {{ selectedAssignment.subjectName }}</strong>
+      <h2>{{ assignment.subjectCode }} — {{ assignment.subjectName }}</h2>
       <p>
-        {{ selectedAssignment.sectionCode }} • {{ formatProgram(selectedAssignment.program) }} •
-        {{ selectedAssignment.yearLevel }} • {{ selectedAssignment.semester }}
+        {{ assignment.sectionCode }} • {{ formatProgram(assignment.program) }} •
+        {{ assignment.yearLevel }} • {{ assignment.semester }}
       </p>
     </div>
 
-    <div class="faculty-pill">
-      {{ selectedAssignment.facultyName }}
-    </div>
+    <strong>{{ assignment.facultyName || currentUser?.fullName || 'Faculty' }}</strong>
   </section>
 
-  <section class="main-card">
-    <div class="card-header">
-      <div class="tabs">
-        <button
-          type="button"
-          [class.active]="activeTab === 'requests'"
-          (click)="setActiveTab('requests')"
-        >
-          Requests
-          <b *ngIf="totalPending">{{ totalPending }}</b>
-        </button>
+  <section class="selected-class-card session-summary-card" *ngIf="selectedSession as session">
+    <div>
+      <span>Selected Session</span>
+      <h2>{{ session.subjectCode }} — {{ session.subjectName }}</h2>
+      <p>
+        Started {{ formatDateTime(session.startTime || session.createdAt) }} • Ends
+        {{ formatDateTime(session.autoCloseAt || session.expiresAt || session.endTime) }} •
+        {{ session.status | titlecase }}
+      </p>
+    </div>
 
+    <strong>
+      Late after {{ session.lateAfterMinutes || session.lateThresholdMinutes || 1 }} minute(s)
+    </strong>
+  </section>
+
+  <section class="records-card">
+    <div class="tabs-row">
+      <div class="tabs">
         <button
           type="button"
           [class.active]="activeTab === 'records'"
           (click)="setActiveTab('records')"
         >
           Records
+          <span>{{ totalRecords }}</span>
         </button>
 
         <button
@@ -86,15 +117,23 @@
           (click)="setActiveTab('roster')"
         >
           Roster
+          <span>{{ totalRoster }}</span>
         </button>
-      </div>
-
-      <div class="actions-bar" *ngIf="activeTab !== 'roster'">
-        <span *ngIf="selectedVisibleCount > 0"> {{ selectedVisibleCount }} selected </span>
 
         <button
           type="button"
-          class="soft-danger"
+          [class.active]="activeTab === 'requests'"
+          (click)="setActiveTab('requests')"
+        >
+          Requests
+          <span *ngIf="totalPending > 0">{{ totalPending }}</span>
+        </button>
+      </div>
+
+      <div class="bulk-actions" *ngIf="activeTab !== 'roster' && visibleItems.length > 0">
+        <button
+          type="button"
+          class="clear-selected"
           [disabled]="!hasVisibleSelection || isProcessing"
           (click)="clearSelected()"
         >
@@ -103,8 +142,8 @@
 
         <button
           type="button"
-          class="danger"
-          [disabled]="visibleItems.length === 0 || isProcessing"
+          class="clear-all"
+          [disabled]="isProcessing"
           (click)="clearAllVisible()"
         >
           Clear All
@@ -112,23 +151,18 @@
       </div>
     </div>
 
-    <div *ngIf="isLoading" class="state">
-      <div class="spinner"></div>
-      <h3>Loading...</h3>
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="empty-icon">⌛</div>
+      <h3>Loading attendance data</h3>
+      <p>Please wait while the system retrieves records.</p>
     </div>
 
     <ng-container *ngIf="!isLoading">
-      <div *ngIf="activeTab === 'requests'" class="table-wrap">
-        <div *ngIf="filteredRequests.length === 0" class="state">
-          <div class="state-icon">✓</div>
-          <h3>No requests</h3>
-          <p>Sit-in or irregular requests will appear here.</p>
-        </div>
-
-        <table *ngIf="filteredRequests.length > 0">
+      <div class="table-wrap" *ngIf="activeTab === 'requests' && filteredRequests.length > 0">
+        <table>
           <thead>
             <tr>
-              <th class="check">
+              <th class="check-col">
                 <input
                   type="checkbox"
                   [checked]="allVisibleSelected"
@@ -136,16 +170,17 @@
                 />
               </th>
               <th>Student</th>
-              <th>Class</th>
-              <th>Status</th>
+              <th>Class / Session</th>
+              <th>Suggested Status</th>
+              <th>Reason</th>
               <th>Date</th>
-              <th class="right">Action</th>
+              <th class="action-col">Action</th>
             </tr>
           </thead>
 
           <tbody>
             <tr *ngFor="let request of filteredRequests">
-              <td class="check">
+              <td class="check-col">
                 <input
                   type="checkbox"
                   [checked]="isItemSelected(request.id)"
@@ -155,30 +190,53 @@
 
               <td>
                 <strong>{{ request.studentName || 'Unknown Student' }}</strong>
-                <span>{{ request.studentId || 'No ID' }}</span>
+                <small>{{ request.studentId || 'No ID' }}</small>
               </td>
 
               <td>
                 <strong>{{ request.subjectCode }} — {{ request.subjectName }}</strong>
-                <span>{{ request.sectionCode }} • {{ request.semester }}</span>
+                <small>{{ request.sectionCode }} • {{ request.semester }}</small>
+                <small>
+                  Session:
+                  {{
+                    request.sessionCode ||
+                      request.baseSessionCode ||
+                      request.submittedAccessCode ||
+                      request.sessionId ||
+                      'N/A'
+                  }}
+                </small>
               </td>
 
               <td>
-                <span class="pill" [class]="request.status || 'pending'">
-                  {{ request.status || 'pending' }}
+                <span class="status-pill" [class]="request.suggestedStatus || request.status">
+                  {{
+                    request.suggestedStatus
+                      ? (request.suggestedStatus | titlecase)
+                      : (request.status | titlecase)
+                  }}
                 </span>
+
+                <small *ngIf="request.suggestedStatus === 'late' && request.lateMinutes">
+                  {{ request.lateMinutes }} minute(s) late
+                </small>
               </td>
 
-              <td>{{ formatDateTime(request.createdAt) }}</td>
+              <td>
+                <p class="reason-text">
+                  {{ request.reason || request.validationReason || 'No reason provided' }}
+                </p>
+              </td>
 
-              <td class="right">
-                <div
-                  class="row-actions"
-                  *ngIf="request.status === 'pending'; else completedRequest"
-                >
+              <td>
+                <span>{{ formatDateTime(request.createdAt || request.submittedAt) }}</span>
+              </td>
+
+              <td class="action-col">
+                <div class="row-actions" *ngIf="request.status === 'pending'; else requestDone">
                   <button
                     type="button"
-                    class="approve"
+                    class="approve-btn"
                     [disabled]="isProcessing"
                     (click)="approveRequest(request)"
                   >
@@ -187,7 +245,7 @@
 
                   <button
                     type="button"
-                    class="reject"
+                    class="reject-btn"
                     [disabled]="isProcessing"
                     (click)="rejectRequest(request)"
                   >
@@ -195,8 +253,10 @@
                   </button>
                 </div>
 
-                <ng-template #completedRequest>
-                  <span class="done">Done</span>
+                <ng-template #requestDone>
+                  <span class="status-pill" [class]="request.status">
+                    {{ request.status | titlecase }}
+                  </span>
                 </ng-template>
               </td>
             </tr>
@@ -204,17 +264,17 @@
         </table>
       </div>
 
-      <div *ngIf="activeTab === 'records'" class="table-wrap">
-        <div *ngIf="filteredRecords.length === 0" class="state">
-          <div class="state-icon">⌕</div>
-          <h3>No records</h3>
-          <p>Approved and regular attendance records will appear here.</p>
-        </div>
+      <div class="empty-state" *ngIf="activeTab === 'requests' && filteredRequests.length === 0">
+        <div class="empty-icon">✓</div>
+        <h3>No attendance requests</h3>
+        <p>Irregular or sit-in student requests for the selected session will appear here.</p>
+      </div>
 
-        <table *ngIf="filteredRecords.length > 0">
+      <div class="table-wrap" *ngIf="activeTab === 'records' && filteredRecords.length > 0">
+        <table>
           <thead>
             <tr>
-              <th class="check">
+              <th class="check-col">
                 <input
                   type="checkbox"
                   [checked]="allVisibleSelected"
@@ -222,7 +282,7 @@
                 />
               </th>
               <th>Student</th>
-              <th>Subject</th>
+              <th>Subject / Session</th>
               <th>Status</th>
               <th>Method</th>
               <th>Date</th>
@@ -231,7 +291,7 @@
 
           <tbody>
             <tr *ngFor="let record of filteredRecords">
-              <td class="check">
+              <td class="check-col">
                 <input
                   type="checkbox"
                   [checked]="isItemSelected(record.id)"
@@ -240,73 +300,101 @@
               </td>
 
               <td>
-                <strong>{{ record.studentName }}</strong>
-                <span>{{ record.studentId }}</span>
+                <strong>{{ record.studentName || 'Unknown Student' }}</strong>
+                <small>{{ record.studentId || 'No ID' }}</small>
               </td>
 
               <td>
                 <strong>{{ record.subjectCode }} — {{ record.subjectName }}</strong>
-                <span>{{ record.sectionCode }} • {{ record.semester }}</span>
+                <small>{{ record.sectionCode }} • {{ record.semester }}</small>
+                <small>
+                  Session:
+                  {{
+                    record.sessionCode ||
+                      record.baseSessionCode ||
+                      record.submittedAccessCode ||
+                      record.sessionId ||
+                      'N/A'
+                  }}
+                </small>
               </td>
 
               <td>
-                <span class="pill approved">{{ record.status || 'present' }}</span>
+                <span class="status-pill" [class]="record.status">
+                  {{ record.status | titlecase }}
+                </span>
+
+                <small *ngIf="record.status === 'late' && record.lateMinutes">
+                  {{ record.lateMinutes }} minute(s) late
+                </small>
+
+                <small *ngIf="record.status === 'absent' && record.autoAbsent">
+                  Auto-generated
+                </small>
+
+                <small *ngIf="record.attendanceDecisionSource">
+                  {{ record.attendanceDecisionSource }}
+                </small>
               </td>
 
-              <td>{{ record.method || 'N/A' }}</td>
-
-              <td>{{ formatDateTime(record.createdAt) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div *ngIf="activeTab === 'roster'" class="table-wrap">
-        <div *ngIf="!selectedAssignment" class="state">
-          <div class="state-icon">!</div>
-          <h3>Select a class</h3>
-          <p>Choose a handled class to view enrolled students.</p>
-        </div>
-
-        <div *ngIf="selectedAssignment && classRoster.length === 0" class="state">
-          <div class="state-icon">⌕</div>
-          <h3>No students found</h3>
-          <p>No enrolled student matches this class.</p>
-        </div>
-
-        <table *ngIf="selectedAssignment && classRoster.length > 0">
-          <thead>
-            <tr>
-              <th>Student</th>
-              <th>Program</th>
-              <th>Year</th>
-              <th>Section</th>
-              <th>Attendance</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr *ngFor="let student of classRoster">
               <td>
-                <strong>{{ student.fullName }}</strong>
-                <span>{{ student.studentId }}</span>
+                <span class="method-text">{{ record.method || 'N/A' }}</span>
               </td>
 
-              <td>{{ formatProgram(student.program) }}</td>
-              <td>{{ student.yearLevel }}</td>
-              <td>{{ student.section }}</td>
-
               <td>
-                <span
-                  class="pill"
-                  [class.approved]="getStudentAttendanceStatus(student) !== 'No record'"
-                >
-                  {{ getStudentAttendanceStatus(student) }}
+                <span>
+                  {{
+                    formatDateTime(
+                      record.submittedAt ||
+                        record.generatedAt ||
+                        record.createdAt ||
+                        record.updatedAt
+                    )
+                  }}
                 </span>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <div class="empty-state" *ngIf="activeTab === 'records' && filteredRecords.length === 0">
+        <div class="empty-icon">▦</div>
+        <h3>No attendance records</h3>
+        <p>Student attendance submissions for the selected session will appear here.</p>
+      </div>
+
+      <div class="roster-grid" *ngIf="activeTab === 'roster' && classRoster.length > 0">
+        <article class="roster-card" *ngFor="let student of classRoster">
+          <div class="student-avatar">
+            {{ (student.fullName || 'S').charAt(0) }}
+          </div>
+
+          <div class="student-info">
+            <h3>{{ student.fullName }}</h3>
+            <p>{{ student.studentId }}</p>
+            <small>
+              {{ formatProgram(student.program) }} • {{ student.yearLevel }} •
+              {{ student.section }}
+            </small>
+          </div>
+
+          <span
+            class="status-pill roster-status"
+            [class]="getStudentAttendanceStatus(student).toLowerCase()"
+          >
+            {{ getStudentAttendanceStatus(student) }}
+          </span>
+        </article>
+      </div>
+
+      <div class="empty-state" *ngIf="activeTab === 'roster' && classRoster.length === 0">
+        <div class="empty-icon">⌕</div>
+        <h3>No students found</h3>
+        <p>
+          No enrolled student matches this class. Check the student Program, Year Level, and Section
+          values.
+        </p>
       </div>
     </ng-container>
   </section>

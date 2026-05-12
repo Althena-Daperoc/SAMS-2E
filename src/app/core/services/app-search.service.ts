@@ -29,7 +29,7 @@ export class AppSearchService {
       route: '/students',
       description: 'View and manage the student list.',
       keywords: ['student records', 'manage students', 'list'],
-      roles: ['admin', 'teacher'],
+      roles: ['admin'],
       category: 'Module',
     },
     {
@@ -197,7 +197,6 @@ export class AppSearchService {
   private listenToFirebaseData(): void {
     this.listenToStudents();
     this.listenToFacultyUsers();
-    this.listenToParentUsers();
     this.listenToSubjects();
     this.listenToSections();
     this.listenToSessions();
@@ -230,7 +229,7 @@ export class AppSearchService {
               data.section,
               data.sectionCode,
             ].filter(Boolean),
-            roles: ['admin', 'teacher'],
+            roles: ['admin'],
             category: 'Student Record',
           } as AppSearchItem;
         }),
@@ -287,10 +286,6 @@ export class AppSearchService {
     });
 
     this.unsubscribeListeners.push(unsubscribe);
-  }
-
-  private listenToParentUsers(): void {
-    // Parent records already come from users listener.
   }
 
   private listenToSubjects(): void {

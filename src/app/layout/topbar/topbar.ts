@@ -51,6 +51,7 @@ export class Topbar implements OnInit, OnDestroy {
 
   notifications: NotificationItem[] = [];
   isNotificationsLoading = false;
+  isNotificationActionLoading = false;
 
   private routerSubscription?: Subscription;
   private notificationSubscription?: Subscription;
@@ -405,7 +406,67 @@ export class Topbar implements OnInit, OnDestroy {
   }
 
   async markNotificationsPreviewRead(): Promise<void> {
-    await this.notificationService.markAllAsRead(this.notifications);
+    if (this.isNotificationActionLoading) return;
+
+    try {
+      this.isNotificationActionLoading = true;
+      await this.notificationService.markAllAsRead(this.notifications);
+    } catch (error) {
+      console.error('Failed to mark notifications as read:', error);
+      await this.alertService.toastError('Unable to mark notifications as read.');
+    } finally {
+      this.isNotificationActionLoading = false;
+    }
+  }
+
+  async deleteNotification(event: MouseEvent, notification: NotificationItem): Promise<void> {
+    event.stopPropagation();
+
+    if (!notification.id || this.isNotificationActionLoading) return;
+
+    const result = await this.alertService.confirm(
+      'Delete notification?',
+      'This notification will be removed from Firebase.',
+      'Delete',
+      'Cancel',
+    );
+
+    if (!result.isConfirmed) return;
+
+    try {
+      this.isNotificationActionLoading = true;
+      await this.notificationService.deleteNotification(notification.id);
+      await this.alertService.toastSuccess('Notification deleted.');
+    } catch (error) {
+      console.error('Failed to delete notification:', error);
+      await this.alertService.toastError('Unable to delete notification.');
+    } finally {
+      this.isNotificationActionLoading = false;
+    }
+  }
+
+  async clearAllNotifications(): Promise<void> {
+    if (this.isNotificationActionLoading || this.notifications.length === 0) return;
+
+    const result = await this.alertService.confirm(
+      'Clear all notifications?',
+      'All your notifications will be permanently removed from Firebase.',
+      'Clear all',
+      'Cancel',
+    );
+
+    if (!result.isConfirmed) return;
+
+    try {
+      this.isNotificationActionLoading = true;
+      await this.notificationService.clearUserNotifications(this.currentUserId);
+      await this.alertService.toastSuccess('All notifications cleared.');
+    } catch (error) {
+      console.error('Failed to clear notifications:', error);
+      await this.alertService.toastError('Unable to clear notifications.');
+    } finally {
+      this.isNotificationActionLoading = false;
+    }
   }
 
   toggleProfileMenu(): void {
@@ -486,9 +547,11 @@ export class Topbar implements OnInit, OnDestroy {
   }
 
   formatNotificationTime(notification: NotificationItem): string {
-    const createdAtDate = notification.createdAt?.toDate?.();
+    const createdAtDate =
+      notification.createdAt?.toDate?.() ||
+      (notification.createdAt ? new Date(notification.createdAt) : null);
 
-    if (!createdAtDate) {
+    if (!createdAtDate || Number.isNaN(createdAtDate.getTime())) {
       return 'Just now';
     }
 

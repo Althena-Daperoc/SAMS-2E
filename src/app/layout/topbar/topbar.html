@@ -142,32 +142,79 @@
             <small>System updates</small>
           </div>
 
-          <button
-            *ngIf="unreadNotificationCount > 0"
-            type="button"
-            class="mark-read-btn"
-            (click)="markNotificationsPreviewRead()"
+          <div
+            style="
+              display: flex;
+              align-items: center;
+              gap: 0.4rem;
+              flex-wrap: wrap;
+              justify-content: flex-end;
+            "
           >
-            Mark read
-          </button>
+            <button
+              *ngIf="unreadNotificationCount > 0"
+              type="button"
+              class="mark-read-btn"
+              [disabled]="isNotificationActionLoading"
+              (click)="markNotificationsPreviewRead()"
+            >
+              Mark read
+            </button>
+
+            <button
+              *ngIf="notifications.length > 0"
+              type="button"
+              class="mark-read-btn"
+              [disabled]="isNotificationActionLoading"
+              (click)="clearAllNotifications()"
+              style="background: #fee2e2; color: #dc2626"
+            >
+              Clear all
+            </button>
+          </div>
         </div>
 
         <div *ngIf="!isNotificationsLoading && notifications.length > 0">
-          <button
-            type="button"
+          <div
             class="notification-item"
             *ngFor="let n of notifications"
             [class.unread]="!n.isRead"
+            role="button"
+            tabindex="0"
             (click)="openNotification(n)"
+            (keydown.enter)="openNotification(n)"
           >
             <span class="notification-dot"></span>
 
-            <span class="notification-copy">
+            <span class="notification-copy" style="flex: 1 1 auto">
               <strong>{{ n.title }}</strong>
               <small>{{ n.message }}</small>
               <em>{{ formatNotificationTime(n) }}</em>
             </span>
-          </button>
+
+            <button
+              type="button"
+              title="Delete notification"
+              aria-label="Delete notification"
+              [disabled]="isNotificationActionLoading"
+              (click)="deleteNotification($event, n)"
+              style="
+                width: 28px;
+                height: 28px;
+                min-width: 28px;
+                border: none;
+                border-radius: 999px;
+                background: rgba(239, 68, 68, 0.1);
+                color: #dc2626;
+                font-size: 1.1rem;
+                font-weight: 900;
+                line-height: 1;
+                cursor: pointer;
+              "
+            >
+              ×
+            </button>
+          </div>
         </div>
 
         <div

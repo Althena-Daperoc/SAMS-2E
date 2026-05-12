@@ -4,6 +4,7 @@ import {
   ElementRef,
   HostListener,
   OnDestroy,
+  OnInit,
   QueryList,
   ViewChildren,
 } from '@angular/core';
@@ -48,12 +49,14 @@ type MenuItem = {
   templateUrl: './sidebar.html',
   styleUrl: './sidebar.scss',
 })
-export class Sidebar implements AfterViewInit, OnDestroy {
+export class Sidebar implements OnInit, AfterViewInit, OnDestroy {
   @ViewChildren('navItem') navItemRefs!: QueryList<ElementRef<HTMLAnchorElement>>;
 
   private routerSubscription?: Subscription;
+  private clockTimer?: ReturnType<typeof setInterval>;
 
   focusedIndex = 0;
+  currentDateTime = new Date();
 
   private readonly allMenuItems: MenuItem[] = [
     // ADMIN
@@ -201,6 +204,10 @@ export class Sidebar implements AfterViewInit, OnDestroy {
       });
   }
 
+  ngOnInit(): void {
+    this.startClock();
+  }
+
   get currentUser(): User | null {
     return this.authService.getCurrentUser();
   }
@@ -227,6 +234,10 @@ export class Sidebar implements AfterViewInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.routerSubscription?.unsubscribe();
+
+    if (this.clockTimer) {
+      clearInterval(this.clockTimer);
+    }
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -283,6 +294,14 @@ export class Sidebar implements AfterViewInit, OnDestroy {
       default:
         break;
     }
+  }
+
+  private startClock(): void {
+    this.currentDateTime = new Date();
+
+    this.clockTimer = setInterval(() => {
+      this.currentDateTime = new Date();
+    }, 1000);
   }
 
   private moveFocus(step: number): void {

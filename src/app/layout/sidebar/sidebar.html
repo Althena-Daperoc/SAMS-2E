@@ -404,5 +404,12 @@
         <span class="nav-pill" *ngIf="isExpanded"></span>
       </a>
     </nav>
+
+    <footer class="sidebar-footer" *ngIf="isExpanded" aria-label="Current date and time">
+      <div class="sidebar-clock-card">
+        <div class="clock-time">{{ currentDateTime | date: 'h:mm:ss a' }}</div>
+        <div class="clock-date">{{ currentDateTime | date: 'EEEE, MMMM d, y' }}</div>
+      </div>
+    </footer>
   </div>
 </aside>

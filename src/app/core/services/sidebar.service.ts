@@ -1,72 +1,52 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
 
 @Injectable({
   providedIn: 'root',
 })
 export class SidebarService {
-  private readonly desktopBreakpoint = 992;
+  isCollapsed = false;
 
-  private readonly collapsedSubject = new BehaviorSubject<boolean>(false);
-  private readonly mobileOpenSubject = new BehaviorSubject<boolean>(false);
-
-  readonly collapsed$ = this.collapsedSubject.asObservable();
-  readonly mobileOpen$ = this.mobileOpenSubject.asObservable();
+  private _isMobileOpen = false;
+  private _isMobileViewport = false;
 
   constructor() {
     this.syncViewport(window.innerWidth);
   }
 
-  isMobileViewport(width = window.innerWidth): boolean {
-    return width <= this.desktopBreakpoint;
-  }
-
-  get isCollapsed(): boolean {
-    return this.collapsedSubject.value;
-  }
-
   get isMobileOpen(): boolean {
-    return this.mobileOpenSubject.value;
+    return this._isMobileOpen;
+  }
+
+  openMobileSidebar(): void {
+    this._isMobileOpen = true;
+  }
+
+  closeMobileSidebar(): void {
+    this._isMobileOpen = false;
+  }
+
+  toggleMobileSidebar(): void {
+    this._isMobileOpen = !this._isMobileOpen;
   }
 
   toggleSidebar(): void {
     if (this.isMobileViewport()) {
-      this.mobileOpenSubject.next(!this.mobileOpenSubject.value);
+      this.toggleMobileSidebar();
       return;
     }
 
-    this.collapsedSubject.next(!this.collapsedSubject.value);
-  }
-
-  openSidebar(): void {
-    if (this.isMobileViewport()) {
-      this.mobileOpenSubject.next(true);
-      return;
-    }
-
-    this.collapsedSubject.next(false);
-  }
-
-  closeSidebar(): void {
-    if (this.isMobileViewport()) {
-      this.mobileOpenSubject.next(false);
-      return;
-    }
-
-    this.collapsedSubject.next(true);
-  }
-
-  closeMobileSidebar(): void {
-    this.mobileOpenSubject.next(false);
+    this.isCollapsed = !this.isCollapsed;
   }
 
   syncViewport(width: number): void {
-    if (width <= this.desktopBreakpoint) {
-      this.collapsedSubject.next(false);
-      this.mobileOpenSubject.next(false);
-      return;
-    }
+    this._isMobileViewport = width <= 992;
 
-    this.mobileOpenSubject.next(false);
+    if (!this._isMobileViewport) {
+      this._isMobileOpen = false;
+    }
+  }
+
+  isMobileViewport(): boolean {
+    return this._isMobileViewport;
   }
 }

@@ -36,10 +36,14 @@
 }
 
 .student-dashboard {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 1.5rem;
   display: grid;
   gap: 1rem;
   color: var(--text);
+  overflow-x: hidden;
 }
 
 .hero-card,
@@ -76,6 +80,7 @@
     font-size: clamp(1.8rem, 4vw, 2.6rem);
     font-weight: 950;
     line-height: 1.1;
+    word-break: break-word;
   }
 
   p {
@@ -98,6 +103,8 @@
     color: var(--primary);
     font-weight: 850;
     font-size: 0.8rem;
+    max-width: 100%;
+    word-break: break-word;
   }
 }
 
@@ -121,12 +128,14 @@
     margin-top: 0.35rem;
     font-size: 1.7rem;
     font-weight: 950;
+    word-break: break-word;
   }
 
   small {
     display: block;
     margin-top: 0.3rem;
     color: var(--muted);
+    line-height: 1.4;
   }
 
   &.present strong {
@@ -173,6 +182,7 @@
     color: var(--text);
     font-size: 1rem;
     font-weight: 950;
+    line-height: 1.3;
   }
 
   &:hover {
@@ -253,6 +263,7 @@
 .mini-profile-card {
   border-radius: 1.5rem;
   padding: 1.15rem;
+  min-width: 0;
 }
 
 .section-header {
@@ -271,6 +282,7 @@
     margin: 0.25rem 0 0;
     color: var(--muted);
     font-size: 0.9rem;
+    line-height: 1.4;
   }
 
   button {
@@ -281,6 +293,7 @@
     color: var(--primary);
     font-weight: 850;
     cursor: pointer;
+    white-space: nowrap;
   }
 }
 
@@ -311,6 +324,7 @@
   p {
     margin: 0.45rem auto 0;
     max-width: 380px;
+    line-height: 1.45;
   }
 }
 
@@ -328,20 +342,29 @@
   border-radius: 1rem;
   background: var(--surface-soft);
   border: 1px solid var(--border);
+  min-width: 0;
+
+  div {
+    min-width: 0;
+  }
 
   strong {
     color: var(--text);
     font-size: 0.92rem;
+    line-height: 1.35;
+    word-break: break-word;
   }
 
   p {
     margin: 0.25rem 0 0;
     color: var(--muted);
     font-size: 0.82rem;
+    line-height: 1.35;
   }
 }
 
 .status-chip {
+  flex: 0 0 auto;
   border-radius: 999px;
   padding: 0.35rem 0.7rem;
   font-size: 0.76rem;
@@ -403,6 +426,8 @@
   strong {
     color: var(--text);
     font-size: 0.92rem;
+    line-height: 1.35;
+    word-break: break-word;
   }
 }
 
@@ -416,24 +441,151 @@
 @media (max-width: 800px) {
   .student-dashboard {
     padding: 1rem;
+    gap: 0.9rem;
   }
 
   .hero-card {
+    min-height: auto;
     flex-direction: column;
     align-items: stretch;
+    border-radius: 1.2rem;
+    padding: 1.1rem;
+
+    h1 {
+      font-size: 1.6rem;
+    }
+
+    p {
+      font-size: 0.9rem;
+    }
+  }
+
+  .student-tags {
+    gap: 0.45rem;
+
+    span {
+      font-size: 0.74rem;
+      padding: 0.4rem 0.6rem;
+    }
   }
 
   .hero-status {
     min-width: 0;
+    border-radius: 1rem;
+
+    strong {
+      font-size: 1.45rem;
+    }
   }
 
   .quick-actions {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
 
-  .section-header,
+  .action-card {
+    min-height: 72px;
+    border-radius: 1rem;
+    padding: 0.95rem;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.75rem;
+  }
+
+  .summary-card {
+    border-radius: 1rem;
+    padding: 0.95rem;
+
+    strong {
+      font-size: 1.6rem;
+    }
+  }
+
+  .summary-card:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .recent-card,
+  .mini-profile-card {
+    border-radius: 1.2rem;
+    padding: 1rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+
+    button {
+      width: 100%;
+      min-height: 44px;
+    }
+  }
+
   .record-item {
     flex-direction: column;
     align-items: flex-start;
+    gap: 0.65rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .student-dashboard {
+    padding: 0.75rem;
+  }
+
+  .hero-card,
+  .recent-card,
+  .mini-profile-card {
+    border-radius: 1rem;
+  }
+
+  .hero-card {
+    padding: 0.95rem;
+
+    .eyebrow {
+      font-size: 0.7rem;
+    }
+
+    h1 {
+      font-size: 1.38rem;
+    }
+
+    p {
+      font-size: 0.84rem;
+    }
+  }
+
+  .student-tags {
+    span {
+      font-size: 0.7rem;
+    }
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-card:first-child {
+    grid-column: auto;
+  }
+
+  .action-card {
+    min-height: 68px;
+  }
+
+  .section-header h2,
+  .mini-profile-card h2 {
+    font-size: 1.08rem;
+  }
+
+  .record-item {
+    padding: 0.8rem;
+  }
+
+  .status-chip {
+    width: fit-content;
   }
 }

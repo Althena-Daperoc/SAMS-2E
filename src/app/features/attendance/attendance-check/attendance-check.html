@@ -1,213 +1,244 @@
-<div class="attendance-page">
-  <section class="hero-card">
+<div class="attendance-check-page">
+  <section class="page-hero">
     <div>
-      <span class="eyebrow">Student Module</span>
+      <span class="eyebrow">Student Attendance</span>
       <h1>Scan Attendance</h1>
-      <p>Scan the QR code or enter the session code displayed by your teacher.</p>
+      <p>
+        Use the QR scanner for automatic attendance submission, or enter the session code manually
+        if your camera is not available.
+      </p>
     </div>
 
-    <div class="hero-status">
-      <span>Active Sessions</span>
-      <strong>{{ activeSessions.length }}</strong>
-    </div>
-  </section>
-
-  <section class="student-strip" *ngIf="currentStudent">
-    <div class="avatar">{{ currentStudent.fullName.charAt(0).toUpperCase() }}</div>
-
-    <div>
-      <span>Logged in as</span>
-      <h3>{{ currentStudent.fullName }}</h3>
-      <p>{{ currentStudent.studentId }} • {{ studentSectionLabel }}</p>
+    <div class="student-chip" *ngIf="currentStudent">
+      <span>{{ currentStudent.fullName }}</span>
+      <small>{{ studentSectionLabel }}</small>
     </div>
   </section>
 
-  <section class="student-strip warning" *ngIf="!currentStudent && !isLoading">
-    <div class="avatar">!</div>
+  <div class="loading-card" *ngIf="isLoading">
+    <div class="loading-icon">⌛</div>
+    <h2>Loading attendance sessions</h2>
+    <p>Please wait while the system checks available active sessions.</p>
+  </div>
 
-    <div>
-      <span>Student record not found</span>
-      <h3>Account not linked</h3>
-      <p>Please contact the administrator to fix your student account link.</p>
-    </div>
-  </section>
-
-  <section class="attendance-grid">
-    <div class="entry-panel">
-      <div class="section-header">
-        <div>
-          <h2>Attendance Entry</h2>
-          <p>Choose one method below to submit your attendance.</p>
-        </div>
+  <section class="attendance-layout" *ngIf="!isLoading">
+    <div class="entry-card">
+      <div class="entry-header">
+        <span class="eyebrow">Attendance Entry</span>
+        <h2>Choose Attendance Method</h2>
+        <p>
+          Method 1 and Method 2 are separate. QR scan submits automatically, while session code
+          entry is used only as a manual backup.
+        </p>
       </div>
 
       <div class="method-grid">
-        <article class="method-card scanner-method">
-          <div class="method-header">
-            <div>
-              <span class="method-label">Method 1</span>
-              <h3>QR Camera Scanner</h3>
-              <p>Point your camera at the QR code shown by your teacher.</p>
-            </div>
+        <article class="method-card qr-method">
+          <div class="method-title">
+            <span>Method 1</span>
+            <h3>QR Camera Scanner</h3>
+            <p>
+              Point your camera at the QR code shown by your teacher. Once a valid QR is detected,
+              attendance is submitted automatically.
+            </p>
           </div>
 
-          <div class="scanner-box" [class.active]="isScanning">
-            <video #scannerVideo muted playsinline></video>
+          <div class="scanner-box" [class.active]="isScanning" [class.processing]="isSubmitting">
+            <video
+              #scannerVideo
+              class="scanner-video"
+              autoplay
+              muted
+              playsinline
+              *ngIf="isScanning"
+            ></video>
 
             <div class="scanner-placeholder" *ngIf="!isScanning">
-              <span>▣</span>
-              <strong>Scanner is off</strong>
-              <small>Start scanner to use your camera.</small>
+              <div class="scanner-icon">▣</div>
+              <strong>{{ isSubmitting ? 'Submitting attendance...' : 'Scanner is off' }}</strong>
+              <span>
+                {{
+                  isSubmitting
+                    ? 'Please wait. The system is recording your attendance.'
+                    : 'Start scanner to use your camera.'
+                }}
+              </span>
             </div>
           </div>
 
-          <div class="method-actions">
-            <button type="button" class="btn primary" *ngIf="!isScanning" (click)="startScanner()">
-              Start QR Scanner
+          <div class="scanner-actions">
+            <button
+              type="button"
+              class="btn primary"
+              *ngIf="!isScanning"
+              [disabled]="isSubmitting"
+              (click)="startScanner()"
+            >
+              {{ isSubmitting ? 'Submitting...' : 'Start QR Scanner' }}
             </button>
 
-            <button type="button" class="btn ghost" *ngIf="isScanning" (click)="stopScanner()">
+            <button
+              type="button"
+              class="btn danger"
+              *ngIf="isScanning"
+              [disabled]="isSubmitting"
+              (click)="stopScanner()"
+            >
               Stop Scanner
             </button>
           </div>
+
+          <div class="method-note success">
+            <strong>Automatic method</strong>
+            <span>
+              For regular students in the correct section, attendance is submitted right after a
+              valid QR scan. Irregular or sit-in students are sent to teacher approval.
+            </span>
+          </div>
         </article>
 
-        <article class="method-card">
-          <div class="method-header">
-            <div>
-              <span class="method-label">Method 2</span>
-              <h3>Session Code</h3>
-              <p>Type the session code manually if camera scanning is not available.</p>
-            </div>
+        <article class="method-card manual-method">
+          <div class="method-title">
+            <span>Method 2</span>
+            <h3>Manual Session Code</h3>
+            <p>
+              Use this only when your phone camera is not working. Type the current session code
+              shown by your teacher, then submit manually.
+            </p>
           </div>
 
-          <div class="code-input-group">
+          <form class="manual-form" (ngSubmit)="submitAttendance()">
             <label for="sessionCode">Session Code</label>
 
-            <div class="code-input">
+            <div class="code-input-wrap">
               <input
                 id="sessionCode"
-                type="text"
                 name="sessionCode"
+                type="text"
                 [(ngModel)]="sessionCode"
-                (input)="findSession()"
+                (ngModelChange)="findSession()"
                 placeholder="Example: SAMS-26-ABCDE"
                 autocomplete="off"
+                [disabled]="isSubmitting"
               />
 
-              <button type="button" *ngIf="sessionCode" (click)="clearCode()">×</button>
+              <button
+                type="button"
+                class="clear-code"
+                *ngIf="sessionCode"
+                [disabled]="isSubmitting"
+                (click)="clearCode()"
+                aria-label="Clear session code"
+              >
+                ×
+              </button>
             </div>
-          </div>
 
-          <button
-            type="button"
-            class="btn primary full"
-            [disabled]="isSubmitting || !sessionCode.trim()"
-            (click)="submitAttendance()"
-          >
-            {{ isSubmitting ? 'Submitting...' : 'Submit Attendance' }}
-          </button>
+            <button
+              type="submit"
+              class="btn primary full"
+              [disabled]="isSubmitting || !sessionCode.trim()"
+            >
+              {{ isSubmitting ? 'Submitting...' : 'Submit Attendance' }}
+            </button>
+          </form>
+
+          <div class="method-note warning">
+            <strong>Manual backup</strong>
+            <span>
+              This method requires the Submit Attendance button. QR scanning does not fill this
+              field anymore because it is a separate automatic method.
+            </span>
+          </div>
         </article>
       </div>
 
-      <div class="note-box">
+      <div class="reminder-box">
         <strong>Reminder:</strong>
         Regular students are recorded directly. Irregular or sit-in students are sent to the teacher
-        for approval.
+        for approval. Reusing an already submitted session will show “Already Recorded.”
       </div>
     </div>
 
-    <aside class="preview-panel">
-      <div class="section-header">
-        <div>
-          <h2>Session Preview</h2>
-          <p>Review the session before submitting.</p>
-        </div>
-      </div>
-
-      <div class="loading-state" *ngIf="isLoading">Loading attendance sessions...</div>
-
-      <div class="empty-state" *ngIf="!isLoading && !selectedSession">
-        <div class="empty-icon">⌕</div>
-        <h3>No session selected</h3>
-        <p>Scan a QR code or enter a valid session code.</p>
-      </div>
-
-      <div class="session-preview" *ngIf="selectedSession">
-        <div
-          class="session-status"
-          [class.closed]="selectedSession.status !== 'active'"
-          [class.expired]="isSessionExpired(selectedSession)"
-        >
-          {{
-            selectedSession.status !== 'active'
-              ? 'Closed'
-              : isSessionExpired(selectedSession)
-                ? 'Expired'
-                : 'Active'
-          }}
-        </div>
-
-        <span class="session-code">{{ selectedSession.sessionCode }}</span>
-        <h3>{{ selectedSession.subjectCode }} — {{ selectedSession.subjectName }}</h3>
-
+    <aside class="preview-card">
+      <div class="preview-header">
+        <span class="eyebrow">Session Preview</span>
+        <h2>Review Session</h2>
         <p>
-          {{ selectedSession.sectionCode }} • {{ formatProgram(selectedSession.program) }} •
-          {{ selectedSession.yearLevel }}
+          The preview appears when you type a valid manual session code. QR scanning submits
+          automatically after validation.
+        </p>
+      </div>
+
+      <div class="preview-empty" *ngIf="!selectedSession">
+        <div class="preview-icon">⌕</div>
+        <h3>No session selected</h3>
+        <p>Enter a session code manually or scan a QR code shown by your teacher.</p>
+      </div>
+
+      <div class="session-preview" *ngIf="selectedSession as session">
+        <div class="session-code-row">
+          <span>{{ getPreviewSessionCode(session) || session.sessionCode || 'Session' }}</span>
+          <strong>Active</strong>
+        </div>
+
+        <h3>{{ session.subjectCode }} — {{ session.subjectName }}</h3>
+        <p>
+          {{ session.sectionCode }} • {{ formatProgram(session.program) }} •
+          {{ session.yearLevel }}
         </p>
 
-        <div
-          class="match-box"
-          *ngIf="currentStudent"
-          [class.irregular]="selectedSession.sectionCode !== currentStudent.section"
-        >
+        <div class="preview-alert" *ngIf="currentStudent">
           <strong>
-            {{
-              selectedSession.sectionCode === currentStudent.section
-                ? 'Regular Attendance'
-                : 'Irregular / Sit-in Request'
-            }}
+            {{ getPreviewStatus(session) === 'Present' ? 'Direct Attendance' : 'Late Attendance' }}
           </strong>
           <span>
             {{
-              selectedSession.sectionCode === currentStudent.section
-                ? 'Your attendance will be recorded directly.'
-                : 'Your request will be sent to the teacher for approval.'
+              getPreviewStatus(session) === 'Present'
+                ? 'If your section matches this session, your attendance will be recorded as Present.'
+                : 'The late threshold has already started. Your attendance will be recorded as Late if submitted now.'
             }}
           </span>
         </div>
 
-        <div class="details-grid">
+        <div class="preview-info-grid">
           <div>
             <span>Teacher</span>
-            <strong>{{ selectedSession.facultyName || 'N/A' }}</strong>
+            <strong>{{ session.facultyName || 'N/A' }}</strong>
           </div>
 
           <div>
             <span>Semester</span>
-            <strong>{{ selectedSession.semester || 'N/A' }}</strong>
+            <strong>{{ session.semester || 'N/A' }}</strong>
           </div>
 
           <div>
             <span>School Year</span>
-            <strong>{{ selectedSession.schoolYear || 'N/A' }}</strong>
+            <strong>{{ session.schoolYear || 'N/A' }}</strong>
           </div>
 
           <div>
             <span>Time Remaining</span>
-            <strong>{{ getTimeRemaining(selectedSession) }}</strong>
+            <strong>{{ getTimeRemaining(session) }}</strong>
+          </div>
+
+          <div class="wide">
+            <span>Expected Status</span>
+            <strong>{{ getPreviewStatus(session) }}</strong>
           </div>
 
           <div class="wide">
             <span>Expires At</span>
-            <strong>{{ formatDateTime(selectedSession.expiresAt) }}</strong>
+            <strong>
+              {{ formatDateTime(session.autoCloseAt || session.expiresAt || session.endTime) }}
+            </strong>
           </div>
         </div>
       </div>
 
-      <div class="success-card" *ngIf="lastSubmittedSession">
+      <div class="last-submitted" *ngIf="lastSubmittedSession as submitted">
         <span>Last Submitted</span>
-        <h3>{{ lastSubmittedSession.subjectCode }} — {{ lastSubmittedSession.subjectName }}</h3>
+        <h3>{{ submitted.subjectCode }} — {{ submitted.subjectName }}</h3>
         <p>Your latest successful attendance submission was recorded.</p>
       </div>
     </aside>

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -17,42 +17,47 @@ import { Section } from '../../models/section.model';
 })
 export class SectionService {
   private readonly collectionName = 'sections';
-
-  constructor(private firestore: Firestore) {}
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(Injector);
 
   getSections(): Observable<Section[]> {
-    return new Observable((observer) => {
-      const ref = collection(this.firestore, this.collectionName);
+    return new Observable<Section[]>((observer) => {
+      return runInInjectionContext(this.injector, () => {
+        const ref = collection(this.firestore, this.collectionName);
 
-      const unsubscribe = onSnapshot(
-        ref,
-        (snapshot) => {
-          const sections: Section[] = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...(docSnap.data() as Section),
-          }));
+        const unsubscribe = onSnapshot(
+          ref,
+          (snapshot) => {
+            const sections: Section[] = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...(docSnap.data() as Section),
+            }));
 
-          sections.sort((a, b) => (a.sectionCode || '').localeCompare(b.sectionCode || ''));
+            sections.sort((a, b) => (a.sectionCode || '').localeCompare(b.sectionCode || ''));
 
-          observer.next(sections);
-        },
-        (error) => observer.error(error),
-      );
+            observer.next(sections);
+          },
+          (error) => observer.error(error),
+        );
 
-      return () => unsubscribe();
+        return () => unsubscribe();
+      });
     });
   }
 
   async addSection(data: Section): Promise<void> {
-    const ref = collection(this.firestore, this.collectionName);
     const now = new Date().toISOString();
 
-    await addDoc(ref, {
-      ...data,
-      isArchived: false,
-      archivedAt: null,
-      createdAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const ref = collection(this.firestore, this.collectionName);
+
+      await addDoc(ref, {
+        ...data,
+        isArchived: false,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     });
   }
 
@@ -63,37 +68,46 @@ export class SectionService {
   }
 
   async updateSection(id: string, data: Partial<Section>): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    await runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, `${this.collectionName}/${id}`);
 
-    await updateDoc(ref, {
-      ...data,
-      updatedAt: new Date().toISOString(),
+      await updateDoc(ref, {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   async archiveSection(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
     const now = new Date().toISOString();
 
-    await updateDoc(ref, {
-      isArchived: true,
-      archivedAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+
+      await updateDoc(ref, {
+        isArchived: true,
+        archivedAt: now,
+        updatedAt: now,
+      });
     });
   }
 
   async restoreSection(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    await runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, `${this.collectionName}/${id}`);
 
-    await updateDoc(ref, {
-      isArchived: false,
-      archivedAt: null,
-      updatedAt: new Date().toISOString(),
+      await updateDoc(ref, {
+        isArchived: false,
+        archivedAt: null,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   async deleteSection(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
-    await deleteDoc(ref);
+    await runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+      await deleteDoc(ref);
+    });
   }
 }

@@ -5,13 +5,14 @@ import { Observable, from, map, switchMap } from 'rxjs';
 import { Auth, signInWithEmailAndPassword, signOut } from '@angular/fire/auth';
 import { Firestore, collection, getDocs, query, where } from '@angular/fire/firestore';
 
-import { User } from '../../models/user.model';
+import { User, UserRole } from '../../models/user.model';
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthService {
   private readonly storageKey = 'sams2_current_user';
+  private readonly legacyStorageKeys = ['currentUser', 'loggedInUser', 'user'];
 
   constructor(
     private firestore: Firestore,
@@ -51,13 +52,13 @@ export class AuthService {
 
           return from(signInWithEmailAndPassword(this.auth, adminEmail, cleanPassword)).pipe(
             map(() => {
-              localStorage.setItem(this.storageKey, JSON.stringify(user));
+              this.setCurrentUser(user);
               return user;
             }),
           );
         }
 
-        localStorage.setItem(this.storageKey, JSON.stringify(user));
+        this.setCurrentUser(user);
         return from(Promise.resolve(user));
       }),
     );
@@ -66,7 +67,7 @@ export class AuthService {
   async logout(): Promise<void> {
     const currentUser = this.getCurrentUser();
 
-    localStorage.removeItem(this.storageKey);
+    this.clearStoredSession();
 
     if (currentUser?.role === 'admin') {
       await signOut(this.auth).catch(() => null);
@@ -79,15 +80,42 @@ export class AuthService {
     const rawUser = localStorage.getItem(this.storageKey);
 
     if (!rawUser) {
+      this.clearLegacyStorageKeys();
       return null;
     }
 
     try {
       return JSON.parse(rawUser) as User;
     } catch {
-      localStorage.removeItem(this.storageKey);
+      this.clearStoredSession();
       return null;
     }
+  }
+
+  setCurrentUser(user: User): void {
+    localStorage.setItem(this.storageKey, JSON.stringify(user));
+    this.clearLegacyStorageKeys();
+  }
+
+  updateStoredCurrentUser(updatedFields: Partial<User>): User | null {
+    const currentUser = this.getCurrentUser();
+
+    if (!currentUser) {
+      return null;
+    }
+
+    const updatedUser: User = {
+      ...currentUser,
+      ...updatedFields,
+    };
+
+    this.setCurrentUser(updatedUser);
+    return updatedUser;
+  }
+
+  clearStoredSession(): void {
+    localStorage.removeItem(this.storageKey);
+    this.clearLegacyStorageKeys();
   }
 
   isLoggedIn(): boolean {
@@ -102,5 +130,28 @@ export class AuthService {
     }
 
     return allowedRoles.includes(currentUser.role);
+  }
+
+  getDefaultRouteByRole(role: UserRole): string {
+    switch (role) {
+      case 'admin':
+        return '/dashboard';
+
+      case 'teacher':
+        return '/dashboard';
+
+      case 'student':
+        return '/student/dashboard';
+
+      case 'parent':
+        return '/parent/dashboard';
+
+      default:
+        return '/login';
+    }
+  }
+
+  private clearLegacyStorageKeys(): void {
+    this.legacyStorageKeys.forEach((key) => localStorage.removeItem(key));
   }
 }

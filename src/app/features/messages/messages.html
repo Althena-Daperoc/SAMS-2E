@@ -1,26 +1,47 @@
-<div class="messages-page">
+<div class="messages-page" [class.mobile-chat-open]="isChatOpenOnMobile">
   <section class="messenger-shell">
     <aside class="conversation-panel">
       <div class="panel-header">
         <div>
-          <span>Messages</span>
+          <span class="eyebrow">Messages</span>
           <h1>Chats</h1>
         </div>
 
-        <button type="button" class="new-chat-btn" (click)="toggleNewChatPanel()">+</button>
+        <button
+          type="button"
+          class="new-chat-btn"
+          title="New conversation"
+          (click)="toggleNewChatPanel()"
+        >
+          <i class="pi pi-plus"></i>
+        </button>
       </div>
 
       <div class="search-box">
-        <span>⌕</span>
+        <span class="search-icon">
+          <i class="pi pi-search"></i>
+        </span>
         <input
           type="text"
           name="searchTerm"
           [(ngModel)]="searchTerm"
-          placeholder="Search conversations..."
+          placeholder="Search Messenger"
+          autocomplete="off"
         />
       </div>
 
       <div class="new-chat-panel" *ngIf="showNewChatPanel">
+        <div class="new-chat-header">
+          <div>
+            <span>Start conversation</span>
+            <strong>New Chat</strong>
+          </div>
+
+          <button type="button" class="close-panel-btn" title="Close" (click)="closeNewChatPanel()">
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
+
         <div class="mode-tabs">
           <button
             type="button"
@@ -39,41 +60,69 @@
           </button>
         </div>
 
-        <input
-          *ngIf="chatMode === 'group'"
-          class="group-input"
-          type="text"
-          name="groupName"
-          [(ngModel)]="groupName"
-          placeholder="Group name"
-        />
+        <div class="group-name-field" *ngIf="chatMode === 'group'">
+          <label for="groupName">Group name</label>
+          <input
+            id="groupName"
+            type="text"
+            name="groupName"
+            [(ngModel)]="groupName"
+            placeholder="Example: IT 2A Group Chat"
+            autocomplete="off"
+          />
+        </div>
 
         <div class="search-box compact">
-          <span>⌕</span>
+          <span class="search-icon">
+            <i class="pi pi-search"></i>
+          </span>
           <input
             type="text"
             name="contactSearchTerm"
             [(ngModel)]="contactSearchTerm"
-            placeholder="Search people..."
+            placeholder="Search people"
+            autocomplete="off"
           />
         </div>
 
-        <div class="contact-list">
+        <div class="selected-people" *ngIf="selectedRecipients.length > 0">
+          <span *ngFor="let user of selectedRecipients; trackBy: trackByUserId">
+            {{ user.fullName }}
+          </span>
+        </div>
+
+        <div class="contact-list" *ngIf="hasAllowedContacts; else noAllowedContacts">
           <button
             type="button"
             class="contact-item"
-            *ngFor="let user of allowedContacts"
+            *ngFor="let user of allowedContacts; trackBy: trackByUserId"
             [class.selected]="isRecipientSelected(user)"
             (click)="toggleRecipient(user)"
           >
-            <div class="avatar">{{ getUserInitial(user) }}</div>
+            <div class="avatar contact-avatar">{{ getUserInitial(user) }}</div>
 
-            <div>
-              <strong>{{ user.fullName }}</strong>
-              <span>{{ getRoleLabel(user.role) }}</span>
+            <div class="contact-info">
+              <strong>{{ user.fullName || user.username || 'Unnamed User' }}</strong>
+              <span>
+                {{ getRoleLabel(user.role) }}
+                <ng-container *ngIf="user.sectionCode || user.section">
+                  · {{ user.sectionCode || user.section }}
+                </ng-container>
+              </span>
+            </div>
+
+            <div class="check-indicator" *ngIf="isRecipientSelected(user)">
+              <i class="pi pi-check"></i>
             </div>
           </button>
         </div>
+
+        <ng-template #noAllowedContacts>
+          <div class="mini-empty-state">
+            <strong>No contacts found</strong>
+            <p>Try searching another name or check available users for your role.</p>
+          </div>
+        </ng-template>
 
         <button
           type="button"
@@ -89,12 +138,19 @@
         <button
           type="button"
           class="conversation-item"
-          *ngFor="let conversation of filteredConversations"
-          [class.active]="selectedConversation?.id === conversation.id"
+          *ngFor="let conversation of filteredConversations; trackBy: trackByConversationId"
+          [class.active]="isConversationSelected(conversation)"
+          [class.unread]="hasUnread(conversation) && !isConversationSelected(conversation)"
           (click)="selectConversation(conversation)"
         >
-          <div class="conversation-avatar">
-            {{ getConversationInitial(conversation) }}
+          <div class="conversation-avatar-wrap">
+            <div class="conversation-avatar">
+              {{ getConversationInitial(conversation) }}
+            </div>
+            <span
+              class="conversation-unread-dot"
+              *ngIf="hasUnread(conversation) && !isConversationSelected(conversation)"
+            ></span>
           </div>
 
           <div class="conversation-info">
@@ -103,74 +159,141 @@
               <span>{{ formatConversationTime(conversation.lastMessageAt) }}</span>
             </div>
 
-            <p>
-              {{
-                conversation.lastMessage ||
-                  (conversation.type === 'group'
-                    ? 'Group conversation started'
-                    : 'Private chat started')
-              }}
-            </p>
+            <div class="conversation-bottom">
+              <p>{{ getConversationPreview(conversation) }}</p>
+
+              <span
+                class="unread-badge"
+                *ngIf="hasUnread(conversation) && !isConversationSelected(conversation)"
+              >
+                {{ getUnreadBadgeLabel(conversation) }}
+              </span>
+
+              <small *ngIf="!hasUnread(conversation) || isConversationSelected(conversation)">
+                {{ getConversationTypeLabel(conversation) }}
+              </small>
+            </div>
           </div>
         </button>
       </div>
 
       <div class="empty-list" *ngIf="!isLoading && filteredConversations.length === 0">
-        <div>💬</div>
+        <div class="empty-icon">
+          <i class="pi pi-comments"></i>
+        </div>
         <strong>No chats yet</strong>
-        <p>Start a private or group conversation.</p>
+        <p>Start a private chat or create a group conversation.</p>
+
+        <button type="button" (click)="toggleNewChatPanel()">Start new chat</button>
       </div>
 
-      <div class="loading-list" *ngIf="isLoading">Loading chats...</div>
+      <div class="loading-list" *ngIf="isLoading">
+        <div class="loading-dot"></div>
+        <span>Loading chats...</span>
+      </div>
     </aside>
 
     <main class="chat-panel">
-      <ng-container *ngIf="selectedConversation; else noConversation">
+      <ng-container *ngIf="selectedConversation as activeConversation; else noConversation">
         <header class="chat-header">
+          <button
+            type="button"
+            class="mobile-back-btn"
+            title="Back"
+            (click)="backToConversations()"
+          >
+            <i class="pi pi-arrow-left"></i>
+          </button>
+
           <div class="chat-title">
-            <div class="avatar">{{ getConversationInitial(selectedConversation) }}</div>
+            <div class="avatar header-avatar">
+              {{ getConversationInitial(activeConversation) }}
+            </div>
 
             <div>
               <h2>{{ activeConversationTitle }}</h2>
               <p>{{ activeConversationSubtitle }}</p>
             </div>
           </div>
+
+          <div class="chat-header-actions">
+            <button type="button" title="Call">
+              <i class="pi pi-phone"></i>
+            </button>
+            <button type="button" title="Conversation info">
+              <i class="pi pi-info-circle"></i>
+            </button>
+          </div>
         </header>
 
         <div class="message-list" #messageScroll>
-          <div class="message-row" *ngFor="let message of messages" [class.mine]="isMine(message)">
-            <div class="message-avatar" *ngIf="!isMine(message)">
-              {{ getMessageInitial(message) }}
+          <ng-container *ngFor="let message of messages; let i = index; trackBy: trackByMessageId">
+            <div class="date-divider" *ngIf="shouldShowDateDivider(i)">
+              <span>{{ getMessageDateLabel(message.createdAt) }}</span>
             </div>
 
-            <div class="message-stack">
-              <span class="sender-name" *ngIf="!isMine(message)">
-                {{ message.senderName }}
-              </span>
+            <div class="message-row" [class.mine]="isMine(message)">
+              <div
+                class="message-avatar"
+                *ngIf="!isMine(message)"
+                [attr.data-name]="message.senderName || 'User'"
+                [attr.aria-label]="message.senderName || 'User'"
+              >
+                {{ getMessageInitial(message) }}
+              </div>
 
-              <div class="message-bubble" [class.deleted]="message.isDeleted">
-                <div class="reply-preview" *ngIf="message.replyToText">
-                  <span>{{ message.replyToSenderName }}</span>
-                  <p>{{ message.replyToText }}</p>
+              <div class="message-stack">
+                <div class="message-content-wrap">
+                  <div class="message-actions left-actions" *ngIf="!message.isDeleted">
+                    <button type="button" title="Reply" (click)="setReply(message)">
+                      <i class="pi pi-reply"></i>
+                    </button>
+                  </div>
+
+                  <div class="message-bubble" [class.deleted]="message.isDeleted">
+                    <div class="reply-preview" *ngIf="message.replyToText">
+                      <span>{{ message.replyToSenderName }}</span>
+                      <p>{{ message.replyToText }}</p>
+                    </div>
+
+                    <p>{{ message.text }}</p>
+                  </div>
+
+                  <div class="message-actions right-actions" *ngIf="!message.isDeleted">
+                    <button type="button" title="Reply" (click)="setReply(message)">
+                      <i class="pi pi-reply"></i>
+                    </button>
+                    <button
+                      type="button"
+                      title="Message options"
+                      *ngIf="isMine(message)"
+                      (click)="unsend(message)"
+                    >
+                      <i class="pi pi-ellipsis-h"></i>
+                    </button>
+                  </div>
                 </div>
 
-                <p>{{ message.text }}</p>
-              </div>
+                <div class="message-meta">
+                  <span *ngIf="isMine(message); else receiverTime">
+                    {{ getMessageStatusText(message) }}
+                  </span>
 
-              <div class="message-meta">
-                <span>{{ formatMessageTime(message.createdAt) }}</span>
-                <span *ngIf="getMessageReceiptLabel(message)">
-                  • {{ getMessageReceiptLabel(message) }}
-                </span>
-              </div>
-
-              <div class="message-actions" *ngIf="!message.isDeleted">
-                <button type="button" (click)="setReply(message)">Reply</button>
-                <button type="button" *ngIf="isMine(message)" (click)="unsend(message)">
-                  Unsend
-                </button>
+                  <ng-template #receiverTime>
+                    <span>{{ formatMessageTime(message.createdAt) }}</span>
+                  </ng-template>
+                </div>
               </div>
             </div>
+          </ng-container>
+
+          <div class="empty-messages" *ngIf="messages.length === 0">
+            <div class="avatar large-avatar">
+              {{ getConversationInitial(activeConversation) }}
+            </div>
+
+            <h3>{{ getConversationTitle(activeConversation) }}</h3>
+            <p>This is the beginning of your conversation.</p>
           </div>
         </div>
 
@@ -181,15 +304,35 @@
               <p>{{ replyToMessage.text }}</p>
             </div>
 
-            <button type="button" (click)="cancelReply()">×</button>
+            <button type="button" title="Cancel reply" (click)="cancelReply()">
+              <i class="pi pi-times"></i>
+            </button>
+          </div>
+
+          <div class="emoji-panel" *ngIf="showEmojiPanel">
+            <button type="button" *ngFor="let emoji of quickEmojis" (click)="insertEmoji(emoji)">
+              {{ emoji }}
+            </button>
           </div>
 
           <div class="composer-row">
+            <button
+              type="button"
+              class="composer-icon-btn"
+              title="Emoji"
+              (click)="toggleEmojiPanel()"
+            >
+              <i class="pi pi-face-smile"></i>
+            </button>
+
             <textarea
+              #composerTextarea
               name="messageText"
               [(ngModel)]="messageText"
               rows="1"
-              placeholder="Type a message..."
+              placeholder="Aa"
+              autocomplete="off"
+              (input)="onComposerInput($event)"
               (keydown)="onMessageInputKeydown($event)"
             ></textarea>
 
@@ -199,7 +342,8 @@
               [disabled]="isSending || !messageText.trim()"
               (click)="sendMessage()"
             >
-              Send
+              <span *ngIf="!isSending">Send</span>
+              <span *ngIf="isSending">Sending...</span>
             </button>
           </div>
         </footer>
@@ -207,9 +351,13 @@
 
       <ng-template #noConversation>
         <div class="no-conversation">
-          <div>💬</div>
+          <div class="empty-icon">
+            <i class="pi pi-comments"></i>
+          </div>
           <h2>Select a conversation</h2>
-          <p>Choose a chat or start a new conversation.</p>
+          <p>Choose a chat from the left or start a new conversation.</p>
+
+          <button type="button" (click)="toggleNewChatPanel()">Start new chat</button>
         </div>
       </ng-template>
     </main>

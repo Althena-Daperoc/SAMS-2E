@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -19,53 +19,61 @@ import { User } from '../../models/user.model';
 })
 export class UserService {
   private readonly collectionName = 'users';
-
-  constructor(private firestore: Firestore) {}
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(Injector);
 
   getUsers(): Observable<User[]> {
-    return new Observable((observer) => {
-      const ref = collection(this.firestore, this.collectionName);
+    return new Observable<User[]>((observer) => {
+      return runInInjectionContext(this.injector, () => {
+        const ref = collection(this.firestore, this.collectionName);
 
-      const unsubscribe = onSnapshot(
-        ref,
-        (snapshot) => {
-          const users: User[] = snapshot.docs.map((docSnap) => {
-            const data = docSnap.data() as Omit<User, 'id'>;
+        const unsubscribe = onSnapshot(
+          ref,
+          (snapshot) => {
+            const users: User[] = snapshot.docs.map((docSnap) => {
+              const data = docSnap.data() as Omit<User, 'id'>;
 
-            return {
-              id: docSnap.id,
-              ...data,
-            };
-          });
+              return {
+                id: docSnap.id,
+                ...data,
+              };
+            });
 
-          observer.next(users);
-        },
-        (error) => observer.error(error),
-      );
+            observer.next(users);
+          },
+          (error) => observer.error(error),
+        );
 
-      return () => unsubscribe();
+        return () => unsubscribe();
+      });
     });
   }
 
   async createUser(user: Omit<User, 'id'>): Promise<void> {
-    const ref = collection(this.firestore, this.collectionName);
+    await runInInjectionContext(this.injector, async () => {
+      const ref = collection(this.firestore, this.collectionName);
 
-    await addDoc(ref, {
-      ...user,
-      status: user.status || 'active',
+      await addDoc(ref, {
+        ...user,
+        status: user.status || 'active',
+      });
     });
   }
 
   async updateUser(id: string, data: Partial<Omit<User, 'id'>>): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
-    await updateDoc(ref, data);
+    await runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+      await updateDoc(ref, data);
+    });
   }
 
   async checkIfExists(username: string): Promise<boolean> {
-    const ref = collection(this.firestore, this.collectionName);
-    const q = query(ref, where('username', '==', username));
-    const snapshot = await getDocs(q);
+    return await runInInjectionContext(this.injector, async () => {
+      const ref = collection(this.firestore, this.collectionName);
+      const q = query(ref, where('username', '==', username));
+      const snapshot = await getDocs(q);
 
-    return !snapshot.empty;
+      return !snapshot.empty;
+    });
   }
 }

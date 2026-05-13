@@ -1,89 +1,190 @@
-<div class="accounts-page">
-  <section class="hero-card">
-    <div>
-      <span class="eyebrow">Admin Module</span>
+<section class="accounts-page">
+  <div class="accounts-hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Administration</span>
       <h1>User Accounts</h1>
-      <p>Generate and manage system login credentials for students, faculty, and parents.</p>
+      <p>
+        Generate, send, reset, activate, and deactivate login credentials for students, faculty, and
+        parents.
+      </p>
     </div>
-  </section>
 
-  <section class="stats-grid">
-    <article class="stat-card">
-      <span>Student Accounts</span>
+    <div class="hero-badge">
+      <i class="pi pi-shield"></i>
+      <div>
+        <span>Account Control</span>
+        <strong>{{ activeAccountCount }} active</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <article class="summary-card tone-primary">
+      <span class="summary-icon">
+        <i class="pi pi-users"></i>
+      </span>
+      <span class="summary-label">Student Accounts</span>
       <strong>{{ studentAccountCount }}</strong>
     </article>
 
-    <article class="stat-card">
-      <span>Faculty Accounts</span>
+    <article class="summary-card tone-info">
+      <span class="summary-icon">
+        <i class="pi pi-id-card"></i>
+      </span>
+      <span class="summary-label">Faculty Accounts</span>
       <strong>{{ teacherAccountCount }}</strong>
     </article>
 
-    <article class="stat-card">
-      <span>Parent Accounts</span>
+    <article class="summary-card tone-warning">
+      <span class="summary-icon">
+        <i class="pi pi-heart"></i>
+      </span>
+      <span class="summary-label">Parent Accounts</span>
       <strong>{{ parentAccountCount }}</strong>
     </article>
 
-    <article class="stat-card">
-      <span>Active Accounts</span>
+    <article class="summary-card tone-success">
+      <span class="summary-icon">
+        <i class="pi pi-check-circle"></i>
+      </span>
+      <span class="summary-label">Active Accounts</span>
       <strong>{{ activeAccountCount }}</strong>
     </article>
-  </section>
+  </div>
 
-  <section class="main-card">
-    <div class="main-header">
+  <div class="records-card">
+    <div class="records-header">
       <div>
-        <h2>Account Generation</h2>
-        <p>Select a record type, then generate login credentials for each registered person.</p>
+        <span class="eyebrow">Credential Management</span>
+        <h2>
+          {{
+            activeTab === 'student'
+              ? 'Student Login Accounts'
+              : activeTab === 'teacher'
+                ? 'Faculty Login Accounts'
+                : 'Parent Login Accounts'
+          }}
+        </h2>
+        <p>
+          {{
+            activeTab === 'student'
+              ? 'Generate student portal credentials from active student records.'
+              : activeTab === 'teacher'
+                ? 'Generate faculty portal credentials from active faculty records.'
+                : 'Generate parent portal credentials from active parent records.'
+          }}
+        </p>
       </div>
 
-      <div class="tabs">
+      <div class="tab-buttons" role="tablist">
         <button type="button" [class.active]="activeTab === 'student'" (click)="setTab('student')">
-          Students
+          <i class="pi pi-users"></i>
+          <span>Students</span>
         </button>
 
         <button type="button" [class.active]="activeTab === 'teacher'" (click)="setTab('teacher')">
-          Faculty
+          <i class="pi pi-id-card"></i>
+          <span>Faculty</span>
         </button>
 
         <button type="button" [class.active]="activeTab === 'parent'" (click)="setTab('parent')">
-          Parents
+          <i class="pi pi-heart"></i>
+          <span>Parents</span>
         </button>
       </div>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar-row">
       <div class="search-box">
-        <span>⌕</span>
+        <i class="pi pi-search"></i>
         <input
           type="text"
           name="searchTerm"
           [(ngModel)]="searchTerm"
-          placeholder="Search name, username, email, or role..."
+          placeholder="Search name, username, email, role, or section..."
+          autocomplete="off"
         />
+
+        <button
+          *ngIf="searchTerm"
+          type="button"
+          class="clear-search"
+          (click)="searchTerm = ''"
+          aria-label="Clear search"
+        >
+          <i class="pi pi-times"></i>
+        </button>
       </div>
 
       <button
         type="button"
-        class="btn bulk"
+        class="bulk-btn"
         [disabled]="isProcessing || filteredPendingPeople.length === 0"
         (click)="bulkGenerateAccounts()"
       >
-        Generate All Pending
-        <span>{{ filteredPendingPeople.length }}</span>
+        <i class="pi pi-send"></i>
+        <span>Generate Pending</span>
+        <strong>{{ filteredPendingPeople.length }}</strong>
       </button>
     </div>
 
-    <div class="loading-state" *ngIf="isLoading">Loading user account records...</div>
+    <div class="notice-strip" *ngIf="!isLoading && filteredPendingPeople.length > 0">
+      <i class="pi pi-info-circle"></i>
+      <div>
+        <strong>{{ filteredPendingPeople.length }} pending account(s)</strong>
+        <span>Only records with valid email addresses can receive generated credentials.</span>
+      </div>
+    </div>
+
+    <div
+      class="notice-strip complete"
+      *ngIf="!isLoading && filteredPeople.length > 0 && filteredPendingPeople.length === 0"
+    >
+      <i class="pi pi-check-circle"></i>
+      <div>
+        <strong>No pending accounts in this view</strong>
+        <span>Visible records already have generated login credentials.</span>
+      </div>
+    </div>
+
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="loader"></div>
+      <strong>Loading account records</strong>
+      <p>Please wait while the registered users and login accounts are being prepared.</p>
+    </div>
 
     <div class="empty-state" *ngIf="!isLoading && filteredPeople.length === 0">
-      <div class="empty-icon">👤</div>
-      <h3>No records found</h3>
-      <p>There are no available records for this category yet, or your search has no match.</p>
+      <span class="empty-icon">
+        <i class="pi pi-user"></i>
+      </span>
+
+      <strong>No records found</strong>
+      <p>
+        {{
+          searchTerm
+            ? 'No record matches your current search.'
+            : activeTab === 'student'
+              ? 'No active student records are available for account generation.'
+              : activeTab === 'teacher'
+                ? 'No active faculty records are available for account generation.'
+                : 'No active parent records are available for account generation.'
+        }}
+      </p>
+
+      <button
+        *ngIf="searchTerm"
+        type="button"
+        class="empty-secondary-btn"
+        (click)="searchTerm = ''"
+      >
+        <i class="pi pi-refresh"></i>
+        <span>Clear Search</span>
+      </button>
     </div>
 
     <div class="accounts-grid" *ngIf="!isLoading && filteredPeople.length > 0">
       <article class="account-card" *ngFor="let person of filteredPeople">
-        <div class="avatar-row">
+        <div class="account-top">
           <div class="avatar">{{ getInitials(person.fullName) }}</div>
 
           <div class="identity">
@@ -96,11 +197,47 @@
             [class.created]="hasAccount(person.username)"
             [class.inactive]="getAccountStatus(person.username) === 'inactive'"
           >
-            {{
-              getAccountStatus(person.username) === 'none'
-                ? 'No Account'
-                : getAccountStatus(person.username)
-            }}
+            <i
+              [class]="
+                getAccountStatus(person.username) === 'none'
+                  ? 'pi pi-user-minus'
+                  : getAccountStatus(person.username) === 'inactive'
+                    ? 'pi pi-ban'
+                    : 'pi pi-check-circle'
+              "
+            ></i>
+            <span>
+              {{
+                getAccountStatus(person.username) === 'none'
+                  ? 'No Account'
+                  : getAccountStatus(person.username)
+              }}
+            </span>
+          </span>
+        </div>
+
+        <div class="role-strip">
+          <span
+            class="role-chip"
+            [class.student]="person.role === 'student'"
+            [class.teacher]="person.role === 'teacher'"
+            [class.parent]="person.role === 'parent'"
+          >
+            <i
+              [class]="
+                person.role === 'student'
+                  ? 'pi pi-users'
+                  : person.role === 'teacher'
+                    ? 'pi pi-id-card'
+                    : 'pi pi-heart'
+              "
+            ></i>
+            {{ person.roleLabel }}
+          </span>
+
+          <span class="username-chip">
+            <i class="pi pi-key"></i>
+            {{ person.username }}
           </span>
         </div>
 
@@ -117,44 +254,62 @@
 
           <div class="wide">
             <span>Email</span>
-            <strong>{{ person.email || 'No email provided' }}</strong>
+            <strong [class.missing-email]="!person.email">
+              {{ person.email || 'No email provided' }}
+            </strong>
           </div>
+        </div>
+
+        <div class="email-warning" *ngIf="!person.email && !hasAccount(person.username)">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>Email is required before credentials can be generated and sent.</span>
         </div>
 
         <div class="card-actions">
           <button
             type="button"
-            class="btn primary"
+            class="action-btn primary"
             *ngIf="!hasAccount(person.username)"
             [disabled]="isProcessing"
             (click)="generateAccount(person)"
           >
-            Generate Account
+            <i class="pi pi-send"></i>
+            <span>Generate Account</span>
           </button>
 
           <button
             type="button"
-            class="btn warning"
+            class="action-btn warning"
             *ngIf="hasAccount(person.username)"
             [disabled]="isProcessing"
             (click)="resetPassword(person)"
           >
-            Reset Password
+            <i class="pi pi-refresh"></i>
+            <span>Reset Password</span>
           </button>
 
           <button
             type="button"
-            class="btn ghost"
+            class="action-btn"
             *ngIf="hasAccount(person.username)"
             [class.danger]="getAccountStatus(person.username) === 'active'"
             [class.success]="getAccountStatus(person.username) === 'inactive'"
             [disabled]="isProcessing"
             (click)="toggleAccountStatus(person)"
           >
-            {{ getAccountStatus(person.username) === 'inactive' ? 'Activate' : 'Deactivate' }}
+            <i
+              [class]="
+                getAccountStatus(person.username) === 'inactive'
+                  ? 'pi pi-check-circle'
+                  : 'pi pi-ban'
+              "
+            ></i>
+            <span>{{
+              getAccountStatus(person.username) === 'inactive' ? 'Activate' : 'Deactivate'
+            }}</span>
           </button>
         </div>
       </article>
     </div>
-  </section>
-</div>
+  </div>
+</section>

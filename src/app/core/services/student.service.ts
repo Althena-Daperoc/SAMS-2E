@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -21,54 +21,61 @@ import { Parent } from '../../models/parent.model';
   providedIn: 'root',
 })
 export class StudentService {
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(Injector);
+
   private readonly collectionName = 'students';
   private readonly parentsCollectionName = 'parents';
 
-  constructor(private firestore: Firestore) {}
-
   getStudents(): Observable<Student[]> {
     return new Observable<Student[]>((observer) => {
-      const studentsRef = collection(this.firestore, this.collectionName);
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const studentsRef = collection(this.firestore, this.collectionName);
 
-      const unsubscribe = onSnapshot(
-        studentsRef,
-        (snapshot) => {
-          const students = snapshot.docs.map((docSnap) => {
-            return {
-              id: docSnap.id,
-              ...(docSnap.data() as Omit<Student, 'id'>),
-            };
-          });
+        return onSnapshot(
+          studentsRef,
+          (snapshot) => {
+            const students = snapshot.docs.map((docSnap) => {
+              return {
+                id: docSnap.id,
+                ...(docSnap.data() as Omit<Student, 'id'>),
+              };
+            });
 
-          students.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+            students.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
 
-          observer.next(students);
-        },
-        (error) => {
-          console.error('Firestore students listener error:', error);
-          observer.error(error);
-        },
-      );
+            observer.next(students);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
   }
 
   getStudentById(id: string): Observable<Student | undefined> {
-    const studentDoc = doc(this.firestore, `${this.collectionName}/${id}`);
-    return docData(studentDoc, { idField: 'id' }) as Observable<Student | undefined>;
+    const cleanId = String(id || '').trim();
+
+    return runInInjectionContext(this.injector, () => {
+      const studentDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+      return docData(studentDoc, { idField: 'id' }) as Observable<Student | undefined>;
+    });
   }
 
   async addStudent(student: Omit<Student, 'id'>): Promise<void> {
-    const studentsRef = collection(this.firestore, this.collectionName);
     const now = new Date().toISOString();
 
-    await addDoc(studentsRef, {
-      ...student,
-      isArchived: false,
-      archivedAt: null,
-      createdAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const studentsRef = collection(this.firestore, this.collectionName);
+
+      await addDoc(studentsRef, {
+        ...student,
+        isArchived: false,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     });
   }
 
@@ -76,15 +83,18 @@ export class StudentService {
     student: Omit<Student, 'id'>,
     parent?: StudentParentLinkPayload | null,
   ): Promise<void> {
-    const studentsRef = collection(this.firestore, this.collectionName);
     const now = new Date().toISOString();
 
-    const studentDocRef = await addDoc(studentsRef, {
-      ...student,
-      isArchived: false,
-      archivedAt: null,
-      createdAt: now,
-      updatedAt: now,
+    const studentDocRef = await runInInjectionContext(this.injector, async () => {
+      const studentsRef = collection(this.firestore, this.collectionName);
+
+      return await addDoc(studentsRef, {
+        ...student,
+        isArchived: false,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     });
 
     if (parent && this.hasCompleteParentDetails(parent)) {
@@ -93,54 +103,91 @@ export class StudentService {
   }
 
   async importStudents(students: Omit<Student, 'id'>[]): Promise<void> {
-    const studentsRef = collection(this.firestore, this.collectionName);
     const now = new Date().toISOString();
 
-    await Promise.all(
-      students.map((student) =>
-        addDoc(studentsRef, {
-          ...student,
-          isArchived: false,
-          archivedAt: null,
-          createdAt: now,
-          updatedAt: now,
-        }),
-      ),
-    );
+    await runInInjectionContext(this.injector, async () => {
+      const studentsRef = collection(this.firestore, this.collectionName);
+
+      await Promise.all(
+        students.map((student) =>
+          addDoc(studentsRef, {
+            ...student,
+            isArchived: false,
+            archivedAt: null,
+            createdAt: now,
+            updatedAt: now,
+          }),
+        ),
+      );
+    });
   }
 
   updateStudent(id: string, student: Partial<Student>): Promise<void> {
-    const studentDoc = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
 
-    return updateDoc(studentDoc, {
-      ...student,
-      updatedAt: new Date().toISOString(),
+    if (!cleanId) {
+      return Promise.resolve();
+    }
+
+    return runInInjectionContext(this.injector, () => {
+      const studentDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      return updateDoc(studentDoc, {
+        ...student,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   archiveStudent(id: string): Promise<void> {
-    const studentDoc = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
 
-    return updateDoc(studentDoc, {
-      isArchived: true,
-      archivedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    if (!cleanId) {
+      return Promise.resolve();
+    }
+
+    const now = new Date().toISOString();
+
+    return runInInjectionContext(this.injector, () => {
+      const studentDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      return updateDoc(studentDoc, {
+        isArchived: true,
+        archivedAt: now,
+        updatedAt: now,
+      });
     });
   }
 
   restoreStudent(id: string): Promise<void> {
-    const studentDoc = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
 
-    return updateDoc(studentDoc, {
-      isArchived: false,
-      archivedAt: null,
-      updatedAt: new Date().toISOString(),
+    if (!cleanId) {
+      return Promise.resolve();
+    }
+
+    return runInInjectionContext(this.injector, () => {
+      const studentDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      return updateDoc(studentDoc, {
+        isArchived: false,
+        archivedAt: null,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   deleteStudentPermanently(id: string): Promise<void> {
-    const studentDoc = doc(this.firestore, `${this.collectionName}/${id}`);
-    return deleteDoc(studentDoc);
+    const cleanId = String(id || '').trim();
+
+    if (!cleanId) {
+      return Promise.resolve();
+    }
+
+    return runInInjectionContext(this.injector, () => {
+      const studentDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+      return deleteDoc(studentDoc);
+    });
   }
 
   async getCurrentStudentsOnce(): Promise<Student[]> {
@@ -160,11 +207,14 @@ export class StudentService {
     parent: StudentParentLinkPayload,
     studentDocId: string,
   ): Promise<void> {
-    const parentsRef = collection(this.firestore, this.parentsCollectionName);
     const parentEmail = parent.email.trim().toLowerCase();
 
-    const existingParentQuery = query(parentsRef, where('email', '==', parentEmail));
-    const existingParentSnapshot = await getDocs(existingParentQuery);
+    const existingParentSnapshot = await runInInjectionContext(this.injector, () => {
+      const parentsRef = collection(this.firestore, this.parentsCollectionName);
+      const existingParentQuery = query(parentsRef, where('email', '==', parentEmail));
+
+      return getDocs(existingParentQuery);
+    });
 
     const now = new Date().toISOString();
 
@@ -177,9 +227,13 @@ export class StudentService {
         ? existingLinkedStudentIds
         : [...existingLinkedStudentIds, studentDocId];
 
-      await updateDoc(
-        doc(this.firestore, `${this.parentsCollectionName}/${existingParentDoc.id}`),
-        {
+      await runInInjectionContext(this.injector, async () => {
+        const parentDoc = doc(
+          this.firestore,
+          `${this.parentsCollectionName}/${existingParentDoc.id}`,
+        );
+
+        await updateDoc(parentDoc, {
           fullName: parent.fullName.trim(),
           contactNumber: parent.contactNumber.trim(),
           relationship: parent.relationship,
@@ -188,24 +242,28 @@ export class StudentService {
           isArchived: existingParent.isArchived || false,
           archivedAt: existingParent.archivedAt || null,
           updatedAt: now,
-        },
-      );
+        });
+      });
 
       return;
     }
 
-    await addDoc(parentsRef, {
-      parentId: parent.parentId?.trim() || this.generateParentId(),
-      fullName: parent.fullName.trim(),
-      email: parentEmail,
-      contactNumber: parent.contactNumber.trim(),
-      relationship: parent.relationship,
-      linkedStudentIds: [studentDocId],
-      status: 'active',
-      isArchived: false,
-      archivedAt: null,
-      createdAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const parentsRef = collection(this.firestore, this.parentsCollectionName);
+
+      await addDoc(parentsRef, {
+        parentId: parent.parentId?.trim() || this.generateParentId(),
+        fullName: parent.fullName.trim(),
+        email: parentEmail,
+        contactNumber: parent.contactNumber.trim(),
+        relationship: parent.relationship,
+        linkedStudentIds: [studentDocId],
+        status: 'active',
+        isArchived: false,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     });
   }
 

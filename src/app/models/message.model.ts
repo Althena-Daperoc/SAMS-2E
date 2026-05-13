@@ -1,4 +1,4 @@
-export type MessageType = 'text';
+export type MessageType = 'text' | 'image' | 'file' | 'system';
 
 export interface ChatMessage {
   id?: string;
@@ -15,10 +15,23 @@ export interface ChatMessage {
   replyToText?: string;
   replyToSenderName?: string;
 
+  recipientIds?: string[];
+
   deliveredTo: string[];
   seenBy: string[];
 
+  deliveredAtByUser?: Record<string, string>;
+  seenAtByUser?: Record<string, string>;
+
+  attachmentUrl?: string;
+  attachmentName?: string;
+  attachmentType?: string;
+  attachmentSize?: number;
+
   createdAt: string;
   updatedAt?: string;
+
   isDeleted: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
 }

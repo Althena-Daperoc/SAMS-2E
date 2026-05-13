@@ -1,110 +1,121 @@
-<div class="subjects-page">
-  <div class="page-header">
-    <div>
-      <span class="eyebrow">Academic Catalog</span>
-      <h2>Subjects</h2>
-      <p>
-        Manage subject records used for academic setup, teacher assignments, attendance sessions,
-        and reports.
-      </p>
+<section class="subjects-page">
+  <div class="subjects-hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Academic Setup</span>
+      <h1>Subjects</h1>
+      <p>Manage subject records, academic units, Excel imports, and archived subjects.</p>
     </div>
 
-    <div class="header-actions">
-      <button class="ghost-btn" type="button" (click)="goBack()">← Back</button>
+    <div class="hero-actions">
+      <button class="ghost-btn" type="button" (click)="goBack()" aria-label="Go back">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back</span>
+      </button>
 
-      <label class="import-btn">
-        Import Excel
+      <label class="import-btn" [class.disabled]="isImporting">
+        <i class="pi pi-upload"></i>
+        <span>{{ isImporting ? 'Importing' : 'Import' }}</span>
         <input type="file" accept=".xlsx,.xls" hidden (change)="onExcelSelected($event)" />
       </label>
 
       <button class="add-btn" type="button" (click)="openAddModal()">
-        <span>+</span>
-        Add Subject
+        <i class="pi pi-plus"></i>
+        <span>Add Subject</span>
       </button>
     </div>
   </div>
 
   <div class="summary-grid">
-    <div class="summary-card">
-      <p>Total Active Subjects</p>
-      <h3>{{ activeSubjects.length }}</h3>
+    <div class="summary-card tone-primary">
+      <span class="summary-icon">
+        <i class="pi pi-book"></i>
+      </span>
+      <span class="summary-label">Active</span>
+      <strong>{{ activeSubjects.length }}</strong>
     </div>
 
-    <div class="summary-card">
-      <p>Archived Subjects</p>
-      <h3>{{ archivedSubjects.length }}</h3>
+    <div class="summary-card tone-warning">
+      <span class="summary-icon">
+        <i class="pi pi-folder"></i>
+      </span>
+      <span class="summary-label">Archive</span>
+      <strong>{{ archivedSubjects.length }}</strong>
     </div>
 
-    <div class="summary-card">
-      <p>Total Subject Records</p>
-      <h3>{{ totalSubjectRecords }}</h3>
+    <div class="summary-card tone-success">
+      <span class="summary-icon">
+        <i class="pi pi-database"></i>
+      </span>
+      <span class="summary-label">Total Records</span>
+      <strong>{{ totalSubjectRecords }}</strong>
     </div>
   </div>
 
-  <div class="subjects-card">
-    <div class="card-header">
+  <div class="records-card">
+    <div class="records-header">
       <div>
-        <h3>{{ activeTab === 'active' ? 'Active Subjects' : 'Archived Subjects' }}</h3>
-        <p>
-          {{
-            activeTab === 'active'
-              ? 'Subjects currently available for assignments, attendance sessions, and reports.'
-              : 'Archived subjects can be restored or permanently deleted.'
-          }}
-        </p>
+        <span class="eyebrow">{{ activeTab === 'active' ? 'Active List' : 'Archive' }}</span>
+        <h2>{{ activeTab === 'active' ? 'Subject Records' : 'Archived Subjects' }}</h2>
       </div>
 
-      <div class="tab-buttons">
+      <div class="tab-buttons" role="tablist">
         <button type="button" [class.active]="activeTab === 'active'" (click)="setTab('active')">
-          Active
+          <i class="pi pi-book"></i>
+          <span>Active</span>
         </button>
 
         <button type="button" [class.active]="activeTab === 'archive'" (click)="setTab('archive')">
-          Archive
+          <i class="pi pi-folder"></i>
+          <span>Archive</span>
         </button>
       </div>
     </div>
 
-    <div class="subjects-tools">
+    <div class="toolbar-row">
       <div class="search-box">
-        <span class="search-icon">⌕</span>
-
+        <i class="pi pi-search"></i>
         <input
           type="text"
-          name="subjectSearch"
+          name="searchTerm"
           [(ngModel)]="searchTerm"
-          placeholder="Search by subject code, subject name, program, year level, semester, units, or status..."
+          placeholder="Search subject, code, program, year, semester..."
+          autocomplete="off"
         />
 
         <button
           *ngIf="searchTerm"
           type="button"
-          class="clear-search-btn"
+          class="clear-search"
           (click)="clearSearch()"
           aria-label="Clear search"
         >
-          ×
+          <i class="pi pi-times"></i>
         </button>
+      </div>
+
+      <div class="format-chip" *ngIf="activeTab === 'active'">
+        <i class="pi pi-file-excel"></i>
+        <span>Subject Code, Subject Name, Program, Year Level, Semester, Units, Status</span>
       </div>
     </div>
 
-    <div class="format-note" *ngIf="activeTab === 'active'">
-      <strong>Excel columns:</strong>
-      Subject Code, Subject Name, Program, Year Level, Semester, Units, Status
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="loader"></div>
+      <strong>Loading subjects</strong>
+      <p>Please wait while the academic catalog is being prepared.</p>
     </div>
 
-    <div class="loading-state" *ngIf="isLoading">Loading subject records...</div>
+    <div class="empty-state" *ngIf="!isLoading && filteredSubjects.length === 0">
+      <span class="empty-icon">
+        <i [class]="activeTab === 'active' ? 'pi pi-book' : 'pi pi-folder'"></i>
+      </span>
 
-    <div class="empty-state" *ngIf="!isLoading && visibleSubjects.length === 0">
-      <div class="empty-icon">📘</div>
-
-      <h3>{{ activeTab === 'active' ? 'No active subjects yet' : 'Archive is empty' }}</h3>
-
+      <strong>{{ activeTab === 'active' ? 'No subjects found' : 'Archive is empty' }}</strong>
       <p>
         {{
           activeTab === 'active'
-            ? 'Add subjects manually or import an Excel file to build the academic catalog.'
-            : 'Archived subjects will appear here when moved out of the active list.'
+            ? 'Try another search or add a subject record.'
+            : 'Archived subject records will appear here.'
         }}
       </p>
 
@@ -114,32 +125,20 @@
         class="empty-btn"
         (click)="openAddModal()"
       >
-        Add Subject
+        <i class="pi pi-plus"></i>
+        <span>Add Subject</span>
       </button>
-    </div>
-
-    <div
-      class="empty-state"
-      *ngIf="!isLoading && visibleSubjects.length > 0 && filteredSubjects.length === 0"
-    >
-      <div class="empty-icon">🔎</div>
-      <h3>No matching subject found</h3>
-      <p>
-        No subject record matches "<strong>{{ searchTerm }}</strong
-        >".
-      </p>
-      <button type="button" class="empty-btn" (click)="clearSearch()">Clear Search</button>
     </div>
 
     <div class="table-wrapper" *ngIf="!isLoading && filteredSubjects.length > 0">
       <table class="subjects-table">
         <thead>
           <tr>
-            <th class="col-number">#</th>
-            <th>Subject Code</th>
-            <th>Subject Name</th>
+            <th>#</th>
+            <th>Code</th>
+            <th>Subject</th>
             <th>Program</th>
-            <th>Year Level</th>
+            <th>Year</th>
             <th>Semester</th>
             <th>Units</th>
             <th>Status</th>
@@ -149,55 +148,99 @@
 
         <tbody>
           <tr *ngFor="let subject of filteredSubjects; let i = index">
-            <td class="col-number">{{ i + 1 }}</td>
+            <td class="row-number">{{ i + 1 }}</td>
 
             <td>
               <span class="subject-code">{{ subject.subjectCode }}</span>
             </td>
 
             <td>
-              <span class="subject-title">{{ subject.subjectName }}</span>
+              <div class="subject-name">
+                <div class="avatar">
+                  <i class="pi pi-book"></i>
+                </div>
+
+                <div>
+                  <strong>{{ subject.subjectName }}</strong>
+                </div>
+              </div>
             </td>
 
-            <td>{{ formatProgram(subject.program) }} ({{ subject.program }})</td>
-            <td>{{ subject.yearLevel }}</td>
+            <td>
+              <span class="program-pill">{{ formatProgram(subject.program) }}</span>
+            </td>
+
+            <td>{{ subject.yearLevel || 'Not set' }}</td>
             <td>{{ subject.semester || 'Not set' }}</td>
-            <td>{{ subject.units }}</td>
+
+            <td>
+              <span class="unit-pill">{{ subject.units || 0 }}</span>
+            </td>
 
             <td>
               <button
                 type="button"
                 class="status-badge"
                 [class.inactive]="subject.status === 'inactive'"
+                [class.archived]="activeTab === 'archive'"
                 [disabled]="activeTab === 'archive'"
                 (click)="toggleSubjectStatus(subject)"
               >
-                {{ subject.status || 'active' }}
+                <i
+                  [class]="
+                    activeTab === 'archive'
+                      ? 'pi pi-folder'
+                      : subject.status === 'inactive'
+                        ? 'pi pi-ban'
+                        : 'pi pi-check-circle'
+                  "
+                ></i>
+                <span>{{ activeTab === 'archive' ? 'archived' : subject.status || 'active' }}</span>
               </button>
             </td>
 
             <td>
               <div class="action-buttons" *ngIf="activeTab === 'active'">
-                <button type="button" class="edit-btn" (click)="openEditModal(subject)">
-                  Edit
-                </button>
-
-                <button type="button" class="archive-btn" (click)="archiveSubject(subject)">
-                  Archive
-                </button>
-              </div>
-
-              <div class="action-buttons" *ngIf="activeTab === 'archive'">
-                <button type="button" class="restore-btn" (click)="restoreSubject(subject)">
-                  Restore
+                <button
+                  type="button"
+                  class="icon-action edit-btn"
+                  (click)="openEditModal(subject)"
+                  aria-label="Edit subject"
+                  title="Edit"
+                >
+                  <i class="pi pi-pencil"></i>
                 </button>
 
                 <button
                   type="button"
-                  class="delete-btn"
-                  (click)="deleteSubjectPermanently(subject)"
+                  class="icon-action archive-btn"
+                  (click)="archiveSubject(subject)"
+                  aria-label="Archive subject"
+                  title="Archive"
                 >
-                  Delete
+                  <i class="pi pi-folder"></i>
+                </button>
+              </div>
+
+              <div class="action-buttons" *ngIf="activeTab === 'archive'">
+                <button
+                  type="button"
+                  class="icon-action restore-btn"
+                  (click)="restoreSubject(subject)"
+                  aria-label="Restore subject"
+                  title="Restore"
+                >
+                  <i class="pi pi-refresh"></i>
+                </button>
+
+                <button
+                  type="button"
+                  class="icon-action delete-btn"
+                  (click)="deleteSubjectPermanently(subject)"
+                  aria-label="Delete permanently"
+                  title="Delete permanently"
+                >
+                  <i class="pi pi-trash"></i>
                 </button>
               </div>
             </td>
@@ -206,23 +249,19 @@
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <div class="modal-backdrop" *ngIf="showFormModal">
   <div class="modal-card">
     <div class="modal-header">
       <div>
-        <h3>{{ isEditing ? 'Edit Subject' : 'Add Subject' }}</h3>
-        <p>
-          {{
-            isEditing
-              ? 'Update this subject record in the academic catalog.'
-              : 'Add a new subject to the academic catalog.'
-          }}
-        </p>
+        <span class="eyebrow">Subject</span>
+        <h3>{{ isEditing ? 'Edit Record' : 'Add Subject' }}</h3>
       </div>
 
-      <button type="button" class="close-btn" (click)="closeFormModal()">×</button>
+      <button type="button" class="close-btn" (click)="closeFormModal()" aria-label="Close modal">
+        <i class="pi pi-times"></i>
+      </button>
     </div>
 
     <form (ngSubmit)="saveSubject()">
@@ -234,7 +273,7 @@
             type="text"
             name="subjectCode"
             [(ngModel)]="form.subjectCode"
-            placeholder="Example: IT101"
+            placeholder="Example: IT 101"
             required
           />
         </div>
@@ -254,16 +293,16 @@
         <div class="form-group">
           <label for="program">Program</label>
           <select id="program" name="program" [(ngModel)]="form.program" required>
-            <option value="IT">Information Technology (IT)</option>
-            <option value="EMT">Electro-Mechanical Technology (EMT)</option>
-            <option value="TCM">Technology Communication Management (TCM)</option>
+            <option value="IT">Information Technology</option>
+            <option value="EMT">Electro-Mechanical Technology</option>
+            <option value="TCM">Technology Communication Management</option>
           </select>
         </div>
 
         <div class="form-group">
           <label for="yearLevel">Year Level</label>
           <select id="yearLevel" name="yearLevel" [(ngModel)]="form.yearLevel" required>
-            <option value="" disabled>Select year level</option>
+            <option value="">Select year level</option>
             <option value="1st Year">1st Year</option>
             <option value="2nd Year">2nd Year</option>
             <option value="3rd Year">3rd Year</option>
@@ -287,8 +326,8 @@
             type="number"
             name="units"
             min="1"
+            max="9"
             [(ngModel)]="form.units"
-            placeholder="Example: 3"
             required
           />
         </div>
@@ -306,7 +345,8 @@
         <button type="button" class="cancel-btn" (click)="closeFormModal()">Cancel</button>
 
         <button type="submit" class="save-btn" [disabled]="isSaving">
-          {{ isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Save Subject' }}
+          <i class="pi pi-save"></i>
+          <span>{{ isSaving ? 'Saving' : 'Save Changes' }}</span>
         </button>
       </div>
     </form>
@@ -317,34 +357,36 @@
   <div class="modal-card import-modal">
     <div class="modal-header">
       <div>
-        <h3>Import Subjects from Excel</h3>
-        <p>{{ importFileName || 'Review imported subject records before saving.' }}</p>
+        <span class="eyebrow">Excel Import</span>
+        <h3>Review Subjects</h3>
+        <p>{{ importFileName || 'Imported file' }}</p>
       </div>
 
-      <button type="button" class="close-btn" (click)="closeImportModal()">×</button>
+      <button type="button" class="close-btn" (click)="closeImportModal()" aria-label="Close modal">
+        <i class="pi pi-times"></i>
+      </button>
     </div>
 
     <div class="import-summary">
-      <div>
-        <span>Valid Records</span>
+      <div class="import-stat success">
+        <span>Valid</span>
         <strong>{{ validImportCount }}</strong>
       </div>
 
-      <div>
-        <span>Needs Review</span>
+      <div class="import-stat warning">
+        <span>Review</span>
         <strong>{{ invalidImportCount }}</strong>
       </div>
 
-      <div>
-        <span>Total Rows</span>
+      <div class="import-stat neutral">
+        <span>Total</span>
         <strong>{{ importPreview.length }}</strong>
       </div>
     </div>
 
-    <div class="format-note">
-      Required columns:
-      <strong>Subject Code, Subject Name, Program, Year Level, Semester, Units</strong>. Optional
-      column: <strong>Status</strong>.
+    <div class="format-chip full">
+      <i class="pi pi-info-circle"></i>
+      <span>Required: Subject Code, Subject Name, Program, Year Level, Semester, Units.</span>
     </div>
 
     <div class="table-wrapper import-preview-table" *ngIf="importPreview.length > 0">
@@ -352,13 +394,12 @@
         <thead>
           <tr>
             <th>Row</th>
-            <th>Subject Code</th>
-            <th>Subject Name</th>
+            <th>Code</th>
+            <th>Subject</th>
             <th>Program</th>
-            <th>Year Level</th>
+            <th>Year</th>
             <th>Semester</th>
             <th>Units</th>
-            <th>Status</th>
             <th>Validation</th>
           </tr>
         </thead>
@@ -368,13 +409,16 @@
             <td>{{ subject.rowNumber }}</td>
             <td>{{ subject.subjectCode || '—' }}</td>
             <td>{{ subject.subjectName || '—' }}</td>
-            <td>{{ formatProgram(subject.program) }} ({{ subject.program }})</td>
+            <td>{{ formatProgram(subject.program) }}</td>
             <td>{{ subject.yearLevel || '—' }}</td>
             <td>{{ subject.semester || '—' }}</td>
             <td>{{ subject.units || '—' }}</td>
-            <td>{{ subject.status }}</td>
             <td>
-              <span class="valid-badge" *ngIf="subject.isValid">Ready</span>
+              <span class="valid-badge" *ngIf="subject.isValid">
+                <i class="pi pi-check-circle"></i>
+                Ready
+              </span>
+
               <span class="error-text" *ngIf="!subject.isValid">
                 {{ subject.errors.join(', ') }}
               </span>
@@ -393,7 +437,8 @@
         [disabled]="isImporting || validImportCount === 0"
         (click)="confirmImport()"
       >
-        {{ isImporting ? 'Importing...' : 'Confirm Import' }}
+        <i class="pi pi-check"></i>
+        <span>{{ isImporting ? 'Importing' : 'Confirm Import' }}</span>
       </button>
     </div>
   </div>

@@ -1,323 +1,333 @@
 <div class="session-page">
-  <section class="hero-card">
+  <section class="session-hero">
     <div>
-      <span class="eyebrow">Teacher Module</span>
-      <h1>Create Attendance Session</h1>
-      <p>
-        Select an assigned class, set the session duration, choose when attendance becomes late, and
-        display the rotating QR code or rotating session code to students.
-      </p>
+      <span class="eyebrow">Faculty Attendance</span>
+      <h1>Create Session</h1>
+      <p>{{ teacherActiveSessions.length }} active session(s)</p>
     </div>
 
     <div class="hero-status">
-      <span>Active Sessions</span>
-      <strong>{{ teacherActiveSessions.length }}</strong>
+      <span class="status-dot"></span>
+      <strong>{{ currentDateTime | date: 'hh:mm:ss a' }}</strong>
     </div>
   </section>
 
-  <section class="setup-grid">
-    <div class="selection-card">
-      <div class="section-header">
+  <section class="session-grid">
+    <div class="panel class-panel">
+      <div class="panel-header">
         <div>
-          <h2>Assigned Classes</h2>
-          <p>Choose the class where attendance will be recorded.</p>
+          <span class="eyebrow">Class</span>
+          <h2>Select Class</h2>
         </div>
+
+        <span class="count-pill">{{ filteredAssignments.length }}</span>
       </div>
 
       <div class="search-box">
-        <span>⌕</span>
+        <i class="pi pi-search"></i>
         <input
           type="text"
           name="searchTerm"
           [(ngModel)]="searchTerm"
-          placeholder="Search subject, section, school year..."
+          placeholder="Search class..."
+          autocomplete="off"
         />
+
+        <button
+          *ngIf="searchTerm"
+          type="button"
+          class="clear-search"
+          (click)="searchTerm = ''"
+          aria-label="Clear search"
+        >
+          <i class="pi pi-times"></i>
+        </button>
       </div>
 
-      <div class="loading-state" *ngIf="isLoading">Loading assigned classes...</div>
+      <div class="loading-state" *ngIf="isLoading">
+        <div class="loader"></div>
+        <strong>Loading classes</strong>
+      </div>
 
       <div class="empty-state" *ngIf="!isLoading && filteredAssignments.length === 0">
-        <div class="empty-icon">▦</div>
-        <h3>No assigned classes</h3>
-        <p>Ask the admin to create a teaching assignment for your faculty account.</p>
+        <i class="pi pi-inbox"></i>
+        <strong>No classes found</strong>
       </div>
 
-      <div class="assignment-list" *ngIf="!isLoading && filteredAssignments.length > 0">
+      <div class="class-list" *ngIf="!isLoading && filteredAssignments.length > 0">
         <button
           type="button"
-          class="assignment-card"
+          class="class-card"
           *ngFor="let assignment of filteredAssignments"
           [class.selected]="selectedAssignmentId === assignment.id"
-          [class.disabled]="hasActiveSession(assignment.id)"
+          [class.locked]="hasActiveSession(assignment.id)"
           (click)="selectAssignment(assignment.id || '')"
         >
-          <div>
-            <span>{{ assignment.subjectCode }}</span>
-            <h3>{{ assignment.subjectName }}</h3>
-            <p>
-              {{ assignment.sectionCode }} • {{ formatProgram(assignment.program) }} •
-              {{ assignment.yearLevel }}
-            </p>
+          <div class="class-icon">
+            <i class="pi pi-book"></i>
           </div>
 
-          <div class="meta">
-            <strong>{{ assignment.semester }}</strong>
-            <small>{{ assignment.schoolYear }}</small>
-            <em *ngIf="hasActiveSession(assignment.id)">Active</em>
+          <div class="class-info">
+            <span>{{ assignment.subjectCode }}</span>
+            <h3>{{ assignment.subjectName }}</h3>
+            <p>{{ assignment.sectionCode }} • {{ assignment.yearLevel }}</p>
+          </div>
+
+          <div class="class-state">
+            <i
+              [class]="
+                hasActiveSession(assignment.id)
+                  ? 'pi pi-circle-fill active'
+                  : selectedAssignmentId === assignment.id
+                    ? 'pi pi-check-circle selected'
+                    : 'pi pi-chevron-right'
+              "
+            ></i>
           </div>
         </button>
       </div>
     </div>
 
-    <div class="setup-card">
-      <div class="section-header">
+    <div class="panel control-panel">
+      <div class="panel-header">
         <div>
+          <span class="eyebrow">Controls</span>
           <h2>Session Setup</h2>
-          <p>Configure the attendance rules for the selected class.</p>
+        </div>
+
+        <span class="security-pill">
+          <i class="pi pi-shield"></i>
+          Secure
+        </span>
+      </div>
+
+      <div class="selected-class" [class.empty]="!selectedAssignment">
+        <div class="selected-icon">
+          <i [class]="selectedAssignment ? 'pi pi-check-circle' : 'pi pi-info-circle'"></i>
+        </div>
+
+        <div>
+          <span>{{ selectedAssignment ? 'Selected' : 'Waiting' }}</span>
+          <h3>
+            {{
+              selectedAssignment
+                ? selectedAssignment.subjectCode + ' — ' + selectedAssignment.subjectName
+                : 'Choose a class'
+            }}
+          </h3>
+          <p *ngIf="selectedAssignment">
+            {{ selectedAssignment.sectionCode }} • {{ selectedAssignment.semester }}
+          </p>
         </div>
       </div>
 
-      <div class="selected-preview" *ngIf="selectedAssignment">
-        <span>Selected Class</span>
-        <h3>{{ selectedAssignment.subjectCode }} — {{ selectedAssignment.subjectName }}</h3>
-        <p>
-          {{ selectedAssignment.sectionCode }} • {{ selectedAssignment.facultyName }} •
-          {{ selectedAssignment.semester }}
-        </p>
-      </div>
-
-      <div class="selected-preview muted" *ngIf="!selectedAssignment">
-        <span>No class selected</span>
-        <h3>Select an assigned class</h3>
-        <p>The selected class details will appear here.</p>
-      </div>
-
-      <div class="session-rule-grid">
-        <div class="form-group">
-          <label for="durationMinutes">Session Duration</label>
-          <select id="durationMinutes" name="durationMinutes" [(ngModel)]="durationMinutes">
+      <div class="control-grid">
+        <label class="control-box">
+          <span>
+            <i class="pi pi-clock"></i>
+            Duration
+          </span>
+          <select name="durationMinutes" [(ngModel)]="durationMinutes">
             <option *ngFor="let option of durationOptions" [ngValue]="option.value">
               {{ option.label }}
             </option>
           </select>
-          <small>Students cannot submit after this duration ends.</small>
-        </div>
+        </label>
 
-        <div class="form-group">
-          <label for="lateAfterMinutes">Mark Late After</label>
-          <select id="lateAfterMinutes" name="lateAfterMinutes" [(ngModel)]="lateAfterMinutes">
+        <label class="control-box warning">
+          <span>
+            <i class="pi pi-exclamation-triangle"></i>
+            Late
+          </span>
+          <select name="lateAfterMinutes" [(ngModel)]="lateAfterMinutes">
             <option *ngFor="let option of lateOptions" [ngValue]="option.value">
               {{ option.label }}
             </option>
           </select>
-          <small>Students who submit after this time will be marked Late.</small>
-        </div>
+        </label>
+
+        <label class="control-box secure">
+          <span>
+            <i class="pi pi-refresh"></i>
+            QR Refresh
+          </span>
+          <select name="rotationSeconds" [(ngModel)]="rotationSeconds">
+            <option *ngFor="let option of rotationOptions" [ngValue]="option.value">
+              {{ option.label }}
+            </option>
+          </select>
+        </label>
       </div>
 
-      <div class="form-group refresh-select">
-        <label for="rotationSeconds">QR / Session Code Refresh Interval</label>
-        <select id="rotationSeconds" name="rotationSeconds" [(ngModel)]="rotationSeconds">
-          <option *ngFor="let option of rotationOptions" [ngValue]="option.value">
-            {{ option.label }} — {{ option.hint }}
-          </option>
-        </select>
-        <small>
-          Shorter intervals are stricter. 30 seconds is recommended for normal classroom use.
-        </small>
-      </div>
-
-      <div class="rule-preview">
-        <div class="rule-item present">
-          <span>Present Window</span>
-          <strong>0–{{ lateAfterMinutes }} minute(s)</strong>
-          <p>Students who submit during this period are recorded as Present.</p>
+      <div class="status-strip">
+        <div class="status-item present">
+          <i class="pi pi-check-circle"></i>
+          <span>Present</span>
+          <strong>0–{{ lateAfterMinutes }}m</strong>
         </div>
 
-        <div class="rule-item late">
-          <span>Late Window</span>
-          <strong>{{ lateAfterMinutes }}–{{ durationMinutes }} minute(s)</strong>
-          <p>Students who submit after the threshold are recorded as Late.</p>
+        <div class="status-item late">
+          <i class="pi pi-clock"></i>
+          <span>Late</span>
+          <strong>{{ lateAfterMinutes }}–{{ durationMinutes }}m</strong>
         </div>
 
-        <div class="rule-item secure">
-          <span>Anti-Cheating Refresh</span>
-          <strong>Every {{ rotationSeconds }} second(s)</strong>
-          <p>The QR token and visible session code change based on this interval.</p>
+        <div class="status-item secure">
+          <i class="pi pi-shield"></i>
+          <span>Rotate</span>
+          <strong>{{ rotationSeconds }}s</strong>
         </div>
-      </div>
-
-      <div class="security-note">
-        <span>Anti-cheating enabled</span>
-        <strong> QR and session code rotate every {{ rotationSeconds }} second(s). </strong>
-        <p>
-          This helps prevent students from reusing old screenshots or forwarding outdated codes.
-        </p>
       </div>
 
       <button
         type="button"
-        class="btn primary full"
+        class="create-btn"
         [disabled]="isCreating || !selectedAssignment || hasActiveSession(selectedAssignment.id)"
         (click)="createSession()"
       >
-        {{ isCreating ? 'Creating...' : 'Create Attendance Session' }}
+        <i class="pi pi-plus-circle"></i>
+        <span>{{ isCreating ? 'Creating...' : 'Start Session' }}</span>
       </button>
     </div>
   </section>
 
-  <section class="qr-display-card" *ngIf="currentDisplaySession as session">
-    <div class="qr-content">
-      <div class="qr-left">
-        <div class="session-title-row">
-          <div>
-            <span class="eyebrow">Live Session</span>
-            <h2>{{ session.subjectCode }} — {{ session.subjectName }}</h2>
-            <p>
-              {{ session.sectionCode }} • {{ session.facultyName }} • Expires
-              {{ formatDateTime(session.autoCloseAt || session.expiresAt || session.endTime) }}
-            </p>
-          </div>
-
-          <div class="session-timer" [class]="getSessionTimerClass(session)">
-            <span>Session ends in</span>
-            <strong>{{ getSessionRemainingTime(session) }}</strong>
-          </div>
+  <section class="live-panel" *ngIf="currentDisplaySession as session">
+    <div class="live-main">
+      <div class="live-header">
+        <div>
+          <span class="eyebrow">Live</span>
+          <h2>{{ session.subjectCode }} — {{ session.subjectName }}</h2>
+          <p>{{ session.sectionCode }} • {{ session.semester }}</p>
         </div>
 
-        <div class="live-rule-card" [class]="getAttendanceRuleClass(session)">
-          <div>
-            <span>Current Attendance Rule</span>
-            <strong>{{ getAttendanceRuleLabel(session) }}</strong>
-            <p>{{ getAttendanceRuleHelp(session) }}</p>
-          </div>
-
-          <div class="late-countdown">
-            <span *ngIf="getAttendanceRuleClass(session) === 'present'">Late starts in</span>
-            <span *ngIf="getAttendanceRuleClass(session) === 'late'">Late started at</span>
-            <span *ngIf="getAttendanceRuleClass(session) === 'closed'">Session status</span>
-
-            <strong *ngIf="getAttendanceRuleClass(session) === 'present'">
-              {{ getLateCountdown(session) }}
-            </strong>
-
-            <strong *ngIf="getAttendanceRuleClass(session) === 'late'">
-              {{ getLateStartsAtText(session) }}
-            </strong>
-
-            <strong *ngIf="getAttendanceRuleClass(session) === 'closed'"> Closed </strong>
-          </div>
-
-          <div class="late-track" *ngIf="getAttendanceRuleClass(session) !== 'closed'">
-            <div class="late-fill" [style.width.%]="getLateProgress(session)"></div>
-          </div>
-        </div>
-
-        <div class="rotation-card" *ngIf="isAntiCheatSession(session)">
-          <div class="rotation-header">
-            <div>
-              <span>Rotating Access</span>
-              <strong>Changes in {{ getRotationCountdown(session) }}</strong>
-            </div>
-
-            <em>{{ getRotationLabel(session) }}</em>
-          </div>
-
-          <div class="rotation-track">
-            <div class="rotation-fill" [style.width.%]="getRotationProgress(session)"></div>
-          </div>
-
-          <p>
-            Only the current QR code or session code is valid. The previous code is accepted briefly
-            to avoid scan timing issues.
-          </p>
-        </div>
-
-        <div class="session-code-box">
-          <span>Current Session Code</span>
-          <strong>{{ getLiveSessionCode(session) }}</strong>
-          <small *ngIf="isAntiCheatSession(session)">
-            This code refreshes {{ getRotationLabel(session) | lowercase }}.
-          </small>
-        </div>
-
-        <div class="qr-actions">
-          <button type="button" class="btn primary" (click)="openQrFullscreen()">
-            Full Screen QR
-          </button>
-
-          <button
-            type="button"
-            class="btn danger"
-            [disabled]="isClosing"
-            (click)="closeSession(session)"
-          >
-            {{ isClosing ? 'Closing...' : 'Close Session' }}
-          </button>
+        <div class="timer-card" [ngClass]="getSessionTimerClass(session)">
+          <i class="pi pi-clock"></i>
+          <strong>{{ getSessionRemainingTime(session) }}</strong>
         </div>
       </div>
 
-      <div class="qr-center">
-        <div class="qr-box">
-          <img [src]="getQrImageUrl(session)" alt="Attendance QR Code" />
+      <div class="live-signs">
+        <div class="sign-card" [ngClass]="getAttendanceRuleClass(session)">
+          <i
+            [class]="
+              getAttendanceRuleClass(session) === 'present'
+                ? 'pi pi-check-circle'
+                : getAttendanceRuleClass(session) === 'late'
+                  ? 'pi pi-clock'
+                  : 'pi pi-times-circle'
+            "
+          ></i>
+
+          <div>
+            <span>Status</span>
+            <strong>{{ getAttendanceRuleLabel(session) }}</strong>
+          </div>
         </div>
 
-        <div class="qr-caption">
-          <strong *ngIf="isAntiCheatSession(session)">
-            QR refreshes in {{ getRotationCountdown(session) }}
-          </strong>
-          <span>Students may scan this QR or enter the current session code manually.</span>
+        <div class="sign-card secure">
+          <i class="pi pi-refresh"></i>
+
+          <div>
+            <span>Refresh</span>
+            <strong>{{ getRotationCountdown(session) }}</strong>
+          </div>
         </div>
+
+        <div class="sign-card code">
+          <i class="pi pi-key"></i>
+
+          <div>
+            <span>Code</span>
+            <strong>{{ getLiveSessionCode(session) }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="progress-area">
+        <div class="progress-label">
+          <span>
+            <i class="pi pi-exclamation-triangle"></i>
+            Late starts
+          </span>
+          <strong>
+            {{
+              getAttendanceRuleClass(session) === 'present'
+                ? getLateCountdown(session)
+                : getLateStartsAtText(session)
+            }}
+          </strong>
+        </div>
+
+        <div class="progress-track">
+          <div class="progress-fill" [style.width.%]="getLateProgress(session)"></div>
+        </div>
+      </div>
+
+      <div class="live-actions">
+        <button type="button" class="primary-btn" (click)="openQrFullscreen()">
+          <i class="pi pi-window-maximize"></i>
+          <span>Fullscreen QR</span>
+        </button>
+
+        <button
+          type="button"
+          class="danger-btn"
+          [disabled]="isClosing"
+          (click)="closeSession(session)"
+        >
+          <i class="pi pi-stop-circle"></i>
+          <span>{{ isClosing ? 'Closing...' : 'End Session' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="qr-panel">
+      <div class="qr-box">
+        <img [src]="getQrImageUrl(session)" alt="Attendance QR Code" />
+      </div>
+
+      <div class="qr-code-label">
+        <span>{{ getLiveSessionCode(session) }}</span>
+        <small>{{ getRotationCountdown(session) }}</small>
       </div>
     </div>
   </section>
 
-  <section class="active-card">
-    <div class="section-header">
+  <section class="panel active-panel">
+    <div class="panel-header">
       <div>
-        <h2>Current Active Sessions</h2>
-        <p>Faculty can monitor or close an active session anytime.</p>
+        <span class="eyebrow">Monitor</span>
+        <h2>Active Sessions</h2>
       </div>
+
+      <span class="count-pill">{{ teacherActiveSessions.length }}</span>
     </div>
 
-    <div class="empty-state compact" *ngIf="!isLoading && teacherActiveSessions.length === 0">
-      <div class="empty-icon">✓</div>
-      <h3>No active sessions</h3>
-      <p>Created attendance sessions will appear here.</p>
+    <div class="empty-state small" *ngIf="!isLoading && teacherActiveSessions.length === 0">
+      <i class="pi pi-check-circle"></i>
+      <strong>No active sessions</strong>
     </div>
 
     <div class="active-list" *ngIf="teacherActiveSessions.length > 0">
-      <article class="active-item" *ngFor="let session of teacherActiveSessions">
-        <div>
+      <article class="active-card" *ngFor="let session of teacherActiveSessions">
+        <div class="active-icon">
+          <i class="pi pi-qrcode"></i>
+        </div>
+
+        <div class="active-info">
           <span>{{ getLiveSessionCode(session) }}</span>
           <h3>{{ session.subjectCode }} — {{ session.subjectName }}</h3>
-          <p>
-            {{ session.sectionCode }} • Created {{ formatDateTime(session.createdAt) }} • Ends
-            {{ formatDateTime(session.autoCloseAt || session.expiresAt || session.endTime) }}
-          </p>
-
-          <div class="active-badges">
-            <small class="active-security" *ngIf="isAntiCheatSession(session)">
-              QR/code refresh: {{ getRotationLabel(session) }} • Next in
-              {{ getRotationCountdown(session) }}
-            </small>
-
-            <small class="active-rule" [class]="getAttendanceRuleClass(session)">
-              {{ getAttendanceRuleLabel(session) }}
-            </small>
-
-            <small class="active-late">
-              Late after {{ getLateAfterMinutes(session) }} minute(s)
-            </small>
-          </div>
+          <p>{{ session.sectionCode }} • {{ getSessionRemainingTime(session) }}</p>
         </div>
 
         <button
           type="button"
-          class="btn danger"
+          class="mini-danger"
           [disabled]="isClosing"
           (click)="closeSession(session)"
+          aria-label="End session"
         >
-          {{ isClosing ? 'Closing...' : 'Close Session' }}
+          <i class="pi pi-stop-circle"></i>
         </button>
       </article>
     </div>
@@ -325,59 +335,54 @@
 </div>
 
 <div class="qr-fullscreen" *ngIf="isQrFullscreen && currentDisplaySession as session">
-  <button type="button" class="fullscreen-close" (click)="closeQrFullscreen()">×</button>
+  <button
+    type="button"
+    class="fullscreen-close"
+    (click)="closeQrFullscreen()"
+    aria-label="Close QR fullscreen"
+  >
+    <i class="pi pi-times"></i>
+  </button>
 
   <div class="fullscreen-content">
-    <div class="fullscreen-header">
-      <span>Student Attendance Monitoring System</span>
-      <h1>Scan Attendance</h1>
-      <p>{{ session.subjectCode }} — {{ session.subjectName }}</p>
-    </div>
-
-    <div class="fullscreen-rule-card" [class]="getAttendanceRuleClass(session)">
+    <div class="fullscreen-status" [ngClass]="getAttendanceRuleClass(session)">
+      <i
+        [class]="
+          getAttendanceRuleClass(session) === 'present'
+            ? 'pi pi-check-circle'
+            : getAttendanceRuleClass(session) === 'late'
+              ? 'pi pi-clock'
+              : 'pi pi-times-circle'
+        "
+      ></i>
       <span>{{ getAttendanceRuleLabel(session) }}</span>
-
-      <strong *ngIf="getAttendanceRuleClass(session) === 'present'">
-        Late starts in {{ getLateCountdown(session) }}
-      </strong>
-
-      <strong *ngIf="getAttendanceRuleClass(session) === 'late'">
-        Students who scan now will be marked Late
-      </strong>
-
-      <strong *ngIf="getAttendanceRuleClass(session) === 'closed'"> Session is closed </strong>
     </div>
 
-    <div class="fullscreen-qr-box">
+    <h1>{{ session.subjectCode }}</h1>
+    <p>{{ session.subjectName }} • {{ session.sectionCode }}</p>
+
+    <div class="fullscreen-qr">
       <img [src]="getQrImageUrl(session)" alt="Attendance QR Code" />
     </div>
 
-    <div class="fullscreen-rotation" *ngIf="isAntiCheatSession(session)">
-      <div>
-        <span>QR refreshes in</span>
-        <strong>{{ getRotationCountdown(session) }}</strong>
-      </div>
-
-      <div class="rotation-track fullscreen-track">
-        <div class="rotation-fill" [style.width.%]="getRotationProgress(session)"></div>
-      </div>
-    </div>
-
     <div class="fullscreen-code">
-      <span>Current Session Code</span>
-      <strong>{{ getLiveSessionCode(session) }}</strong>
-      <small *ngIf="isAntiCheatSession(session)">
-        This code refreshes {{ getRotationLabel(session) | lowercase }}.
+      <span>{{ getLiveSessionCode(session) }}</span>
+      <small>
+        <i class="pi pi-refresh"></i>
+        {{ getRotationCountdown(session) }}
       </small>
     </div>
 
     <div class="fullscreen-footer">
-      <p>
-        Section: <strong>{{ session.sectionCode }}</strong> &nbsp;•&nbsp; Late after:
-        <strong>{{ getLateAfterMinutes(session) }} minute(s)</strong> &nbsp;•&nbsp; Refresh:
-        <strong>{{ getRotationLabel(session) }}</strong> &nbsp;•&nbsp; Session ends in:
-        <strong>{{ getSessionRemainingTime(session) }}</strong>
-      </p>
+      <span>
+        <i class="pi pi-clock"></i>
+        {{ getSessionRemainingTime(session) }}
+      </span>
+
+      <span>
+        <i class="pi pi-exclamation-triangle"></i>
+        Late: {{ getLateAfterMinutes(session) }}m
+      </span>
     </div>
   </div>
 </div>

@@ -37,15 +37,20 @@ import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 
 export const routes: Routes = [
-  { path: '', redirectTo: 'login', pathMatch: 'full' },
-  { path: 'login', component: Login },
-
+  {
+    path: '',
+    redirectTo: 'login',
+    pathMatch: 'full',
+  },
+  {
+    path: 'login',
+    component: Login,
+  },
   {
     path: '',
     component: MainLayout,
     canActivate: [authGuard],
     children: [
-      //GLOBAL
       {
         path: 'profile',
         component: Profile,
@@ -59,13 +64,11 @@ export const routes: Routes = [
         data: { roles: ['admin', 'teacher', 'student', 'parent'] },
       },
       {
-        path: 'faqs', // ✅ ADD THIS
+        path: 'faqs',
         component: Faqs,
         canActivate: [roleGuard],
         data: { roles: ['admin', 'teacher', 'student', 'parent'] },
       },
-
-      //ADMIN
       {
         path: 'dashboard',
         component: Dashboard,
@@ -126,8 +129,6 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: { roles: ['admin', 'teacher'] },
       },
-
-      //TEACHER
       {
         path: 'sessions/create',
         component: CreateSession,
@@ -140,8 +141,12 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: { roles: ['teacher'] },
       },
-
-      //STUDENT
+      {
+        path: 'messages',
+        component: Messages,
+        canActivate: [roleGuard],
+        data: { roles: ['teacher', 'student'] },
+      },
       {
         path: 'student/dashboard',
         component: StudentDashboard,
@@ -160,15 +165,6 @@ export const routes: Routes = [
         canActivate: [roleGuard],
         data: { roles: ['student'] },
       },
-
-      {
-        path: 'messages',
-        component: Messages,
-        canActivate: [roleGuard],
-        data: { roles: ['student', 'teacher'] },
-      },
-
-      //PARENT
       {
         path: 'parent/dashboard',
         component: ParentDashboard,
@@ -183,6 +179,8 @@ export const routes: Routes = [
       },
     ],
   },
-
-  { path: '**', redirectTo: 'login' },
+  {
+    path: '**',
+    redirectTo: 'login',
+  },
 ];

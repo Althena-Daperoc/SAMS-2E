@@ -408,12 +408,10 @@ export class Topbar implements OnInit, OnDestroy {
   async markNotificationsPreviewRead(): Promise<void> {
     if (this.isNotificationActionLoading) return;
 
+    this.isNotificationActionLoading = true;
+
     try {
-      this.isNotificationActionLoading = true;
       await this.notificationService.markAllAsRead(this.notifications);
-    } catch (error) {
-      console.error('Failed to mark notifications as read:', error);
-      await this.alertService.toastError('Unable to mark notifications as read.');
     } finally {
       this.isNotificationActionLoading = false;
     }
@@ -422,48 +420,46 @@ export class Topbar implements OnInit, OnDestroy {
   async deleteNotification(event: MouseEvent, notification: NotificationItem): Promise<void> {
     event.stopPropagation();
 
-    if (!notification.id || this.isNotificationActionLoading) return;
+    if (this.isNotificationActionLoading || !notification.id) return;
 
-    const result = await this.alertService.confirm(
-      'Delete notification?',
-      'This notification will be removed from Firebase.',
-      'Delete',
-      'Cancel',
-    );
-
-    if (!result.isConfirmed) return;
+    this.isNotificationActionLoading = true;
 
     try {
-      this.isNotificationActionLoading = true;
       await this.notificationService.deleteNotification(notification.id);
-      await this.alertService.toastSuccess('Notification deleted.');
-    } catch (error) {
-      console.error('Failed to delete notification:', error);
-      await this.alertService.toastError('Unable to delete notification.');
+    } catch {
+      await this.alertService.error(
+        'Notification Error',
+        'Unable to delete this notification. Please try again.',
+      );
     } finally {
       this.isNotificationActionLoading = false;
     }
   }
 
   async clearAllNotifications(): Promise<void> {
-    if (this.isNotificationActionLoading || this.notifications.length === 0) return;
+    if (this.isNotificationActionLoading || !this.currentUserId || !this.notifications.length) {
+      return;
+    }
 
     const result = await this.alertService.confirm(
-      'Clear all notifications?',
-      'All your notifications will be permanently removed from Firebase.',
-      'Clear all',
+      'Clear Notifications',
+      'Are you sure you want to remove all your notifications? This will also remove them from Firebase.',
+      'Yes, clear all',
       'Cancel',
     );
 
     if (!result.isConfirmed) return;
 
+    this.isNotificationActionLoading = true;
+
     try {
-      this.isNotificationActionLoading = true;
       await this.notificationService.clearUserNotifications(this.currentUserId);
-      await this.alertService.toastSuccess('All notifications cleared.');
-    } catch (error) {
-      console.error('Failed to clear notifications:', error);
-      await this.alertService.toastError('Unable to clear notifications.');
+      await this.alertService.toastSuccess('Notifications cleared.');
+    } catch {
+      await this.alertService.error(
+        'Notification Error',
+        'Unable to clear notifications. Please try again.',
+      );
     } finally {
       this.isNotificationActionLoading = false;
     }
@@ -542,16 +538,14 @@ export class Topbar implements OnInit, OnDestroy {
       return;
     }
 
-    this.authService.logout();
+    await this.authService.logout();
     await this.alertService.toastSuccess('You have been logged out.');
   }
 
   formatNotificationTime(notification: NotificationItem): string {
-    const createdAtDate =
-      notification.createdAt?.toDate?.() ||
-      (notification.createdAt ? new Date(notification.createdAt) : null);
+    const createdAtDate = notification.createdAt?.toDate?.();
 
-    if (!createdAtDate || Number.isNaN(createdAtDate.getTime())) {
+    if (!createdAtDate) {
       return 'Just now';
     }
 
@@ -587,8 +581,7 @@ export class Topbar implements OnInit, OnDestroy {
           this.notifications = notifications;
           this.isNotificationsLoading = false;
         },
-        error: (error) => {
-          console.error('Failed to load notifications:', error);
+        error: () => {
           this.notifications = [];
           this.isNotificationsLoading = false;
         },

@@ -1,136 +1,189 @@
-<div class="dashboard-page">
-  <section class="hero-card">
+<section class="dashboard-page">
+  <div class="dashboard-hero">
     <div class="hero-content">
-      <span class="hero-kicker">Attendance Administration</span>
-      <h1>Welcome back, {{ displayName }}</h1>
+      <span class="eyebrow">{{ roleLabel }}</span>
+      <h1>{{ greeting }}, {{ firstName }}</h1>
       <p>
-        {{
-          isAdmin
-            ? 'Manage student records, faculty information, parent access, class organization, and attendance monitoring for the school.'
-            : 'Manage class attendance sessions, review student attendance records, and monitor attendance reports for your assigned classes.'
-        }}
+        <strong>{{ dashboardTitle }}</strong>
+        <span class="hero-dot">•</span>
+        {{ dashboardSubtitle }}
       </p>
+    </div>
 
-      <div class="hero-badges">
-        <span>{{ roleLabel }}</span>
-        <span>School Records</span>
-        <span>Attendance Monitoring</span>
+    <div class="hero-focus">
+      <div class="focus-icon">
+        <i [class]="isAdmin ? 'pi pi-building' : 'pi pi-qrcode'"></i>
+      </div>
+      <div>
+        <span>Focus</span>
+        <strong>{{ focusTitle }}</strong>
+        <p>{{ focusMeta }}</p>
       </div>
     </div>
+  </div>
 
-    <div class="hero-panel">
-      <p>Today’s Focus</p>
-      <h3>{{ isAdmin ? 'Academic Records' : 'Class Attendance' }}</h3>
-      <span>
-        {{
-          isAdmin
-            ? 'Keep student, faculty, parent, section, and subject records organized.'
-            : 'Create attendance sessions and monitor submitted attendance records.'
-        }}
-      </span>
-    </div>
-  </section>
+  <div class="loading-card" *ngIf="isLoading">
+    <div class="loader"></div>
+    <strong>Loading dashboard</strong>
+    <p>Preparing your workspace.</p>
+  </div>
 
-  <section class="status-grid">
-    <div class="status-card">
-      <span class="status-label">Portal</span>
-      <h3>{{ isAdmin ? 'School Admin' : 'Faculty' }}</h3>
-      <p>
-        {{
-          isAdmin
-            ? 'Administrative modules are organized for school record management.'
-            : 'Faculty tools are focused on attendance operations.'
-        }}
-      </p>
-    </div>
+  <ng-container *ngIf="!isLoading">
+    <div class="stats-grid">
+      <button
+        type="button"
+        class="stat-card"
+        *ngFor="let stat of statCards"
+        [ngClass]="'tone-' + stat.tone"
+        aria-label="Dashboard statistic"
+      >
+        <span class="stat-icon">
+          <i [class]="stat.icon"></i>
+        </span>
 
-    <div class="status-card">
-      <span class="status-label">Records</span>
-      <h3>{{ isAdmin ? 'Academic Setup' : 'Class Records' }}</h3>
-      <p>
-        {{
-          isAdmin
-            ? 'Maintain students, faculty, parents, subjects, and sections.'
-            : 'Handle attendance records for assigned classes.'
-        }}
-      </p>
+        <span class="stat-label">{{ stat.label }}</span>
+        <strong>{{ stat.value }}</strong>
+      </button>
     </div>
 
-    <div class="status-card">
-      <span class="status-label">Monitoring</span>
-      <h3>Attendance</h3>
-      <p>Track attendance activity through organized records and reports.</p>
+    <div class="quick-actions">
+      <button
+        type="button"
+        class="action-card"
+        *ngFor="let action of primaryActions"
+        [ngClass]="'tone-' + action.tone"
+        (click)="navigateTo(action.route)"
+      >
+        <span>
+          <i [class]="action.icon"></i>
+        </span>
+        <strong>{{ action.label }}</strong>
+      </button>
     </div>
-  </section>
 
-  <section class="workspace-grid">
-    <div class="modules-card">
-      <div class="section-heading">
-        <div>
-          <span>Workspace</span>
-          <h2>{{ isAdmin ? 'Administrative Modules' : 'Faculty Modules' }}</h2>
+    <div class="dashboard-grid">
+      <div class="panel main-panel">
+        <div class="panel-header">
+          <div>
+            <span class="eyebrow">Workspace</span>
+            <h2>{{ isAdmin ? 'Management' : 'Faculty Tools' }}</h2>
+          </div>
+        </div>
+
+        <div class="module-grid">
+          <button
+            type="button"
+            class="module-card"
+            *ngFor="let module of moduleCards"
+            (click)="navigateTo(module.route)"
+          >
+            <span class="module-icon">
+              <i [class]="module.icon"></i>
+            </span>
+
+            <span class="module-meta">{{ module.meta }}</span>
+            <strong>{{ module.label }}</strong>
+
+            <span class="module-count" *ngIf="module.count !== undefined">
+              {{ module.count }}
+            </span>
+
+            <span class="module-arrow">
+              <i class="pi pi-arrow-right"></i>
+            </span>
+          </button>
         </div>
       </div>
 
-      <div class="module-grid">
+      <div class="panel side-panel">
+        <div class="panel-header">
+          <div>
+            <span class="eyebrow">Status</span>
+            <h2>Today</h2>
+          </div>
+        </div>
+
+        <div class="signal-list">
+          <div
+            class="signal-card"
+            *ngFor="let signal of systemSignals"
+            [ngClass]="'tone-' + signal.tone"
+          >
+            <span class="signal-icon">
+              <i [class]="signal.icon"></i>
+            </span>
+
+            <div>
+              <span>{{ signal.label }}</span>
+              <strong>{{ signal.value }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel records-panel">
+      <div class="panel-header">
+        <div>
+          <span class="eyebrow">Recent</span>
+          <h2>Attendance</h2>
+        </div>
+
         <button
           type="button"
-          class="module-tile"
-          *ngFor="let module of modules"
-          (click)="goTo(module.route)"
+          class="text-action"
+          *ngIf="isTeacher"
+          (click)="navigateTo('/attendance/records')"
         >
-          <div class="module-top">
-            <span class="module-tag">{{ module.tag }}</span>
-            <span class="module-arrow">→</span>
-          </div>
+          View records
+          <i class="pi pi-arrow-right"></i>
+        </button>
 
-          <h3>{{ module.title }}</h3>
-          <p>{{ module.description }}</p>
+        <button type="button" class="text-action" *ngIf="isAdmin" (click)="navigateTo('/reports')">
+          View reports
+          <i class="pi pi-arrow-right"></i>
         </button>
       </div>
+
+      <div class="record-list" *ngIf="recentRecords.length > 0; else noRecentRecords">
+        <div class="record-row" *ngFor="let record of recentRecords">
+          <div class="record-avatar">
+            <i class="pi pi-user"></i>
+          </div>
+
+          <div class="record-main">
+            <strong>
+              {{ record.studentName || record.fullName || record.name || 'Student' }}
+            </strong>
+
+            <span>
+              {{ record.subjectName || record.subjectCode || record.subject || 'Attendance' }}
+              <span class="separator">•</span>
+              {{ record.sectionCode || record.section || record.studentSection || 'Section' }}
+            </span>
+          </div>
+
+          <div class="record-meta">
+            <span class="status-pill" [ngClass]="getStatusClass(record.status)">
+              {{ formatStatus(record.status) }}
+            </span>
+
+            <small>
+              {{ formatDateTime(record.submittedAt || record.generatedAt || record.createdAt) }}
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <ng-template #noRecentRecords>
+        <div class="empty-state">
+          <span>
+            <i class="pi pi-inbox"></i>
+          </span>
+          <strong>No recent attendance</strong>
+          <p>New records will appear here.</p>
+        </div>
+      </ng-template>
     </div>
-
-    <aside class="roadmap-card">
-      <div class="section-heading">
-        <div>
-          <span>School Setup</span>
-          <h2>Administration Guide</h2>
-        </div>
-      </div>
-
-      <div class="timeline">
-        <div class="timeline-item done">
-          <span></span>
-          <div>
-            <h4>Portal Access</h4>
-            <p>Admin, Faculty, Student, and Parent portals are separated.</p>
-          </div>
-        </div>
-
-        <div class="timeline-item active">
-          <span></span>
-          <div>
-            <h4>School Records</h4>
-            <p>Set up students, faculty, parents, subjects, and sections.</p>
-          </div>
-        </div>
-
-        <div class="timeline-item">
-          <span></span>
-          <div>
-            <h4>Class Assignments</h4>
-            <p>Assign faculty to subjects and sections for attendance sessions.</p>
-          </div>
-        </div>
-
-        <div class="timeline-item">
-          <span></span>
-          <div>
-            <h4>Attendance Monitoring</h4>
-            <p>Use records and reports to monitor student attendance.</p>
-          </div>
-        </div>
-      </div>
-    </aside>
-  </section>
-</div>
+  </ng-container>
+</section>

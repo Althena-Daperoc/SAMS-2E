@@ -1,105 +1,132 @@
-<div class="sections-page">
-  <div class="hero-card">
-    <div>
-      <span class="eyebrow">Academic Structure</span>
-      <h2>Sections</h2>
-      <p>
-        Organize students by program, year level, and section for attendance sessions and
-        assignments.
-      </p>
+<section class="sections-page">
+  <div class="sections-hero">
+    <div class="hero-copy">
+      <span class="eyebrow">Academic Setup</span>
+      <h1>Sections</h1>
+      <p>Organize students by program, year level, and section for attendance sessions.</p>
     </div>
 
     <div class="hero-actions">
-      <button type="button" class="secondary-btn" (click)="goBack()">← Back</button>
+      <button class="ghost-btn" type="button" (click)="goBack()" aria-label="Go back">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back</span>
+      </button>
 
-      <label class="primary-btn soft">
-        Import Excel
+      <label class="import-btn" [class.disabled]="isImporting">
+        <i class="pi pi-upload"></i>
+        <span>{{ isImporting ? 'Importing' : 'Import Excel' }}</span>
         <input type="file" accept=".xlsx,.xls" hidden (change)="onExcelSelected($event)" />
       </label>
 
-      <button type="button" class="primary-btn" (click)="openAddModal()">+ Add Section</button>
+      <button class="add-btn" type="button" (click)="openAddModal()">
+        <i class="pi pi-plus"></i>
+        <span>Add Section</span>
+      </button>
     </div>
   </div>
 
-  <div class="stats-grid">
-    <div class="stat-card">
-      <span>Active Sections</span>
+  <div class="summary-grid">
+    <div class="summary-card tone-primary">
+      <span class="summary-icon">
+        <i class="pi pi-sitemap"></i>
+      </span>
+      <span class="summary-label">Active</span>
       <strong>{{ activeSections.length }}</strong>
     </div>
 
-    <div class="stat-card">
-      <span>Archived Sections</span>
+    <div class="summary-card tone-warning">
+      <span class="summary-icon">
+        <i class="pi pi-folder"></i>
+      </span>
+      <span class="summary-label">Archive</span>
       <strong>{{ archivedSections.length }}</strong>
     </div>
 
-    <div class="stat-card">
-      <span>Total Records</span>
+    <div class="summary-card tone-success">
+      <span class="summary-icon">
+        <i class="pi pi-database"></i>
+      </span>
+      <span class="summary-label">Total Records</span>
       <strong>{{ totalSectionRecords }}</strong>
     </div>
   </div>
 
-  <div class="content-card">
-    <div class="content-header">
+  <div class="records-card">
+    <div class="records-header">
       <div>
-        <h3>{{ activeTab === 'active' ? 'Active Sections' : 'Archived Sections' }}</h3>
-        <p>
-          {{
-            activeTab === 'active'
-              ? 'Sections currently available for academic setup and attendance grouping.'
-              : 'Archived sections can be restored or permanently deleted.'
-          }}
-        </p>
+        <span class="eyebrow">{{ activeTab === 'active' ? 'Active List' : 'Archive' }}</span>
+        <h2>{{ activeTab === 'active' ? 'Section Records' : 'Archived Sections' }}</h2>
       </div>
 
-      <div class="pill-tabs">
+      <div class="tab-buttons" role="tablist">
         <button type="button" [class.active]="activeTab === 'active'" (click)="setTab('active')">
-          Active
+          <i class="pi pi-sitemap"></i>
+          <span>Active</span>
         </button>
 
         <button type="button" [class.active]="activeTab === 'archive'" (click)="setTab('archive')">
-          Archive
+          <i class="pi pi-folder"></i>
+          <span>Archive</span>
         </button>
       </div>
     </div>
 
-    <div class="toolbar">
+    <div class="toolbar-row">
       <div class="search-box">
-        <span>⌕</span>
+        <i class="pi pi-search"></i>
         <input
           type="text"
           name="sectionSearch"
           [(ngModel)]="searchTerm"
           placeholder="Search section code, program, year level, section name, or status..."
+          autocomplete="off"
         />
 
-        <button *ngIf="searchTerm" type="button" (click)="clearSearch()">×</button>
+        <button
+          *ngIf="searchTerm"
+          type="button"
+          class="clear-search"
+          (click)="clearSearch()"
+          aria-label="Clear search"
+        >
+          <i class="pi pi-times"></i>
+        </button>
       </div>
 
-      <div class="excel-hint" *ngIf="activeTab === 'active'">
-        Excel columns: <strong>Program, Year Level, Section Name, Status</strong>
+      <div class="format-chip" *ngIf="activeTab === 'active'">
+        <i class="pi pi-file-excel"></i>
+        <span>Program, Year Level, Section Name, Status</span>
       </div>
     </div>
 
-    <div class="loading-state" *ngIf="isLoading">Loading sections...</div>
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="loader"></div>
+      <strong>Loading sections</strong>
+      <p>Please wait while the section records are being prepared.</p>
+    </div>
 
     <div class="empty-state" *ngIf="!isLoading && visibleSections.length === 0">
-      <div class="empty-icon">▦</div>
-      <h3>{{ activeTab === 'active' ? 'No sections yet' : 'Archive is empty' }}</h3>
+      <span class="empty-icon">
+        <i [class]="activeTab === 'active' ? 'pi pi-sitemap' : 'pi pi-folder'"></i>
+      </span>
+
+      <strong>{{ activeTab === 'active' ? 'No sections yet' : 'Archive is empty' }}</strong>
       <p>
         {{
           activeTab === 'active'
-            ? 'Create your first section manually or import a section list from Excel.'
-            : 'Archived sections will appear here.'
+            ? 'Create a section manually or import a section list from Excel.'
+            : 'Archived section records will appear here.'
         }}
       </p>
 
       <button
         *ngIf="activeTab === 'active'"
         type="button"
-        class="primary-btn"
+        class="empty-btn"
         (click)="openAddModal()"
       >
-        Add Section
+        <i class="pi pi-plus"></i>
+        <span>Add Section</span>
       </button>
     </div>
 
@@ -107,70 +134,126 @@
       class="empty-state"
       *ngIf="!isLoading && visibleSections.length > 0 && filteredSections.length === 0"
     >
-      <div class="empty-icon">⌕</div>
-      <h3>No matching section found</h3>
+      <span class="empty-icon">
+        <i class="pi pi-search"></i>
+      </span>
+
+      <strong>No matching section found</strong>
       <p>
         No section record matches "<strong>{{ searchTerm }}</strong
         >".
       </p>
-      <button type="button" class="secondary-btn" (click)="clearSearch()">Clear Search</button>
+
+      <button type="button" class="empty-secondary-btn" (click)="clearSearch()">
+        <i class="pi pi-refresh"></i>
+        <span>Clear Search</span>
+      </button>
     </div>
 
     <div class="section-grid" *ngIf="!isLoading && filteredSections.length > 0">
-      <div class="section-card" *ngFor="let section of filteredSections">
-        <div class="section-main">
-          <span class="section-code">{{ section.sectionCode }}</span>
-          <h4>{{ formatProgram(section.program) }}</h4>
-          <p>{{ section.yearLevel }} • Section {{ section.sectionName }}</p>
-        </div>
+      <article class="section-card" *ngFor="let section of filteredSections">
+        <div class="section-top">
+          <div class="section-icon">
+            <i class="pi pi-sitemap"></i>
+          </div>
 
-        <div class="section-meta">
           <button
             type="button"
-            class="status-chip"
+            class="status-badge"
             [class.inactive]="section.status === 'inactive'"
+            [class.archived]="activeTab === 'archive'"
             [disabled]="activeTab === 'archive'"
             (click)="toggleSectionStatus(section)"
           >
-            {{ section.status || 'active' }}
+            <i
+              [class]="
+                activeTab === 'archive'
+                  ? 'pi pi-folder'
+                  : section.status === 'inactive'
+                    ? 'pi pi-ban'
+                    : 'pi pi-check-circle'
+              "
+            ></i>
+            <span>{{ activeTab === 'archive' ? 'archived' : section.status || 'active' }}</span>
           </button>
         </div>
 
+        <div class="section-body">
+          <span class="section-code">{{ section.sectionCode }}</span>
+          <h3>{{ formatProgram(section.program) }}</h3>
+
+          <div class="section-details">
+            <span>
+              <i class="pi pi-calendar"></i>
+              {{ section.yearLevel || 'Year not set' }}
+            </span>
+
+            <span>
+              <i class="pi pi-users"></i>
+              Section {{ section.sectionName || 'Not set' }}
+            </span>
+          </div>
+        </div>
+
         <div class="section-actions" *ngIf="activeTab === 'active'">
-          <button type="button" class="light-btn" (click)="openEditModal(section)">Edit</button>
-          <button type="button" class="warning-btn" (click)="archiveSection(section)">
-            Archive
+          <button
+            type="button"
+            class="card-action edit-btn"
+            (click)="openEditModal(section)"
+            aria-label="Edit section"
+          >
+            <i class="pi pi-pencil"></i>
+            <span>Edit</span>
+          </button>
+
+          <button
+            type="button"
+            class="card-action archive-btn"
+            (click)="archiveSection(section)"
+            aria-label="Archive section"
+          >
+            <i class="pi pi-folder"></i>
+            <span>Archive</span>
           </button>
         </div>
 
         <div class="section-actions" *ngIf="activeTab === 'archive'">
-          <button type="button" class="success-btn" (click)="restoreSection(section)">
-            Restore
+          <button
+            type="button"
+            class="card-action restore-btn"
+            (click)="restoreSection(section)"
+            aria-label="Restore section"
+          >
+            <i class="pi pi-refresh"></i>
+            <span>Restore</span>
           </button>
-          <button type="button" class="danger-btn" (click)="deleteSectionPermanently(section)">
-            Delete
+
+          <button
+            type="button"
+            class="card-action delete-btn"
+            (click)="deleteSectionPermanently(section)"
+            aria-label="Delete permanently"
+          >
+            <i class="pi pi-trash"></i>
+            <span>Delete</span>
           </button>
         </div>
-      </div>
+      </article>
     </div>
   </div>
-</div>
+</section>
 
 <div class="modal-backdrop" *ngIf="showFormModal">
   <div class="modal-card">
     <div class="modal-header">
       <div>
-        <h3>{{ isEditing ? 'Edit Section' : 'Add Section' }}</h3>
-        <p>
-          {{
-            isEditing
-              ? 'Update program, year level, and section details.'
-              : 'Create a section under a specific program and year level.'
-          }}
-        </p>
+        <span class="eyebrow">Section</span>
+        <h3>{{ isEditing ? 'Edit Record' : 'Add Section' }}</h3>
       </div>
 
-      <button type="button" class="close-btn" (click)="closeFormModal()">×</button>
+      <button type="button" class="close-btn" (click)="closeFormModal()" aria-label="Close modal">
+        <i class="pi pi-times"></i>
+      </button>
     </div>
 
     <form (ngSubmit)="saveSection()">
@@ -178,9 +261,9 @@
         <div class="form-group">
           <label for="program">Program</label>
           <select id="program" name="program" [(ngModel)]="form.program" required>
-            <option value="IT">Information Technology (IT)</option>
-            <option value="EMT">Electro-Mechanical Technology (EMT)</option>
-            <option value="TCM">Technology Communication Management (TCM)</option>
+            <option value="IT">Information Technology</option>
+            <option value="EMT">Electro-Mechanical Technology</option>
+            <option value="TCM">Technology Communication Management</option>
           </select>
         </div>
 
@@ -217,7 +300,8 @@
       </div>
 
       <div class="preview-box" *ngIf="form.program && form.yearLevel && form.sectionName">
-        Generated section code:
+        <i class="pi pi-info-circle"></i>
+        <span>Generated code:</span>
         <strong>
           {{ form.program }}-{{ form.yearLevel.charAt(0)
           }}{{ form.sectionName.trim().toUpperCase() }}
@@ -225,10 +309,11 @@
       </div>
 
       <div class="modal-actions">
-        <button type="button" class="secondary-btn" (click)="closeFormModal()">Cancel</button>
+        <button type="button" class="cancel-btn" (click)="closeFormModal()">Cancel</button>
 
-        <button type="submit" class="primary-btn" [disabled]="isSaving">
-          {{ isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Save Section' }}
+        <button type="submit" class="save-btn" [disabled]="isSaving">
+          <i class="pi pi-save"></i>
+          <span>{{ isSaving ? 'Saving' : isEditing ? 'Save Changes' : 'Save Section' }}</span>
         </button>
       </div>
     </form>
@@ -239,44 +324,47 @@
   <div class="modal-card import-modal">
     <div class="modal-header">
       <div>
-        <h3>Import Sections from Excel</h3>
-        <p>{{ importFileName || 'Review imported sections before saving.' }}</p>
+        <span class="eyebrow">Excel Import</span>
+        <h3>Review Sections</h3>
+        <p>{{ importFileName || 'Imported file' }}</p>
       </div>
 
-      <button type="button" class="close-btn" (click)="closeImportModal()">×</button>
+      <button type="button" class="close-btn" (click)="closeImportModal()" aria-label="Close modal">
+        <i class="pi pi-times"></i>
+      </button>
     </div>
 
     <div class="import-summary">
-      <div>
+      <div class="import-stat success">
         <span>Valid</span>
         <strong>{{ validImportCount }}</strong>
       </div>
 
-      <div>
-        <span>Needs Review</span>
+      <div class="import-stat warning">
+        <span>Review</span>
         <strong>{{ invalidImportCount }}</strong>
       </div>
 
-      <div>
-        <span>Total Rows</span>
+      <div class="import-stat neutral">
+        <span>Total</span>
         <strong>{{ importPreview.length }}</strong>
       </div>
     </div>
 
-    <div class="excel-hint modal-hint">
-      Required columns: <strong>Program, Year Level, Section Name</strong>. Optional:
-      <strong>Status</strong>.
+    <div class="format-chip full">
+      <i class="pi pi-info-circle"></i>
+      <span>Required: Program, Year Level, Section Name. Optional: Status.</span>
     </div>
 
-    <div class="import-table-wrap" *ngIf="importPreview.length > 0">
-      <table>
+    <div class="table-wrapper import-preview-table" *ngIf="importPreview.length > 0">
+      <table class="sections-table">
         <thead>
           <tr>
             <th>Row</th>
-            <th>Section Code</th>
+            <th>Code</th>
             <th>Program</th>
-            <th>Year Level</th>
-            <th>Section Name</th>
+            <th>Year</th>
+            <th>Section</th>
             <th>Status</th>
             <th>Validation</th>
           </tr>
@@ -286,12 +374,16 @@
           <tr *ngFor="let section of importPreview" [class.invalid-row]="!section.isValid">
             <td>{{ section.rowNumber }}</td>
             <td>{{ section.sectionCode || '—' }}</td>
-            <td>{{ formatProgram(section.program) }} ({{ section.program }})</td>
+            <td>{{ formatProgram(section.program) }}</td>
             <td>{{ section.yearLevel || '—' }}</td>
             <td>{{ section.sectionName || '—' }}</td>
             <td>{{ section.status }}</td>
             <td>
-              <span class="valid-badge" *ngIf="section.isValid">Ready</span>
+              <span class="valid-badge" *ngIf="section.isValid">
+                <i class="pi pi-check-circle"></i>
+                Ready
+              </span>
+
               <span class="error-text" *ngIf="!section.isValid">
                 {{ section.errors.join(', ') }}
               </span>
@@ -302,15 +394,16 @@
     </div>
 
     <div class="modal-actions">
-      <button type="button" class="secondary-btn" (click)="closeImportModal()">Cancel</button>
+      <button type="button" class="cancel-btn" (click)="closeImportModal()">Cancel</button>
 
       <button
         type="button"
-        class="primary-btn"
+        class="save-btn"
         [disabled]="isImporting || validImportCount === 0"
         (click)="confirmImport()"
       >
-        {{ isImporting ? 'Importing...' : 'Confirm Import' }}
+        <i class="pi pi-check"></i>
+        <span>{{ isImporting ? 'Importing' : 'Confirm Import' }}</span>
       </button>
     </div>
   </div>

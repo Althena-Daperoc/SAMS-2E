@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -16,85 +16,130 @@ import { Parent } from '../../models/parent.model';
   providedIn: 'root',
 })
 export class ParentService {
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(Injector);
   private readonly collectionName = 'parents';
 
-  constructor(private firestore: Firestore) {}
-
   getParents(): Observable<Parent[]> {
-    return new Observable((observer) => {
-      const ref = collection(this.firestore, this.collectionName);
+    return new Observable<Parent[]>((observer) => {
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const parentsRef = collection(this.firestore, this.collectionName);
 
-      const unsubscribe = onSnapshot(
-        ref,
-        (snapshot) => {
-          const parents: Parent[] = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...(docSnap.data() as Parent),
-          }));
+        return onSnapshot(
+          parentsRef,
+          (snapshot) => {
+            const parents: Parent[] = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...(docSnap.data() as Parent),
+            }));
 
-          observer.next(parents);
-        },
-        (error) => {
-          observer.error(error);
-        },
-      );
+            parents.sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+
+            observer.next(parents);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
   }
 
   async addParent(data: Parent): Promise<void> {
-    const ref = collection(this.firestore, this.collectionName);
     const now = new Date().toISOString();
 
-    await addDoc(ref, {
-      ...data,
-      linkedStudentIds: data.linkedStudentIds || [],
-      isArchived: false,
-      archivedAt: null,
-      createdAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const parentsRef = collection(this.firestore, this.collectionName);
+
+      await addDoc(parentsRef, {
+        ...data,
+        linkedStudentIds: data.linkedStudentIds || [],
+        isArchived: false,
+        archivedAt: null,
+        createdAt: data.createdAt || now,
+        updatedAt: now,
+      });
     });
   }
 
   async importParents(records: Parent[]): Promise<void> {
-    for (const parent of records) {
-      await this.addParent(parent);
-    }
+    const now = new Date().toISOString();
+
+    await runInInjectionContext(this.injector, async () => {
+      const parentsRef = collection(this.firestore, this.collectionName);
+
+      await Promise.all(
+        records.map((parent) =>
+          addDoc(parentsRef, {
+            ...parent,
+            linkedStudentIds: parent.linkedStudentIds || [],
+            isArchived: false,
+            archivedAt: null,
+            createdAt: parent.createdAt || now,
+            updatedAt: now,
+          }),
+        ),
+      );
+    });
   }
 
   async updateParent(id: string, data: Partial<Parent>): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
 
-    await updateDoc(ref, {
-      ...data,
-      updatedAt: new Date().toISOString(),
+    if (!cleanId) return;
+
+    await runInInjectionContext(this.injector, async () => {
+      const parentDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      await updateDoc(parentDoc, {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   async archiveParent(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
+
+    if (!cleanId) return;
+
     const now = new Date().toISOString();
 
-    await updateDoc(ref, {
-      isArchived: true,
-      archivedAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const parentDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      await updateDoc(parentDoc, {
+        isArchived: true,
+        archivedAt: now,
+        updatedAt: now,
+      });
     });
   }
 
   async restoreParent(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
 
-    await updateDoc(ref, {
-      isArchived: false,
-      archivedAt: null,
-      updatedAt: new Date().toISOString(),
+    if (!cleanId) return;
+
+    await runInInjectionContext(this.injector, async () => {
+      const parentDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      await updateDoc(parentDoc, {
+        isArchived: false,
+        archivedAt: null,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   async deleteParent(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
-    await deleteDoc(ref);
+    const cleanId = String(id || '').trim();
+
+    if (!cleanId) return;
+
+    await runInInjectionContext(this.injector, async () => {
+      const parentDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+      await deleteDoc(parentDoc);
+    });
   }
 }

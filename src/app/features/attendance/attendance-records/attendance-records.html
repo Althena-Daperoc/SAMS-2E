@@ -1,35 +1,45 @@
 <div class="records-page">
   <section class="records-hero">
-    <div class="hero-copy">
-      <span>Faculty Attendance</span>
+    <div>
+      <span class="eyebrow">Faculty Attendance</span>
       <h1>Attendance Records</h1>
       <p>
-        Manage requests, attendance records, class roster, and auto-absent monitoring by exact
-        session.
+        {{
+          selectedAssignment
+            ? selectedAssignment.subjectCode + ' • ' + selectedAssignment.sectionCode
+            : 'All assigned classes'
+        }}
       </p>
     </div>
 
-    <div class="hero-stats">
-      <div class="stat-card pending">
+    <div class="hero-metrics">
+      <div class="metric pending">
+        <i class="pi pi-clock"></i>
         <span>Pending</span>
         <strong>{{ totalPending }}</strong>
       </div>
 
-      <div class="stat-card records">
+      <div class="metric records">
+        <i class="pi pi-check-circle"></i>
         <span>Records</span>
         <strong>{{ totalRecords }}</strong>
       </div>
 
-      <div class="stat-card roster">
+      <div class="metric roster">
+        <i class="pi pi-users"></i>
         <span>Roster</span>
         <strong>{{ totalRoster }}</strong>
       </div>
     </div>
   </section>
 
-  <section class="filter-card">
-    <div class="filter-group class-filter">
-      <label for="assignmentSelect">Class</label>
+  <section class="control-panel">
+    <div class="filter-box">
+      <label for="assignmentSelect">
+        <i class="pi pi-book"></i>
+        Class
+      </label>
+
       <select
         id="assignmentSelect"
         name="assignmentSelect"
@@ -43,72 +53,94 @@
       </select>
     </div>
 
-    <div class="filter-group session-filter">
-      <label for="sessionSelect">Session</label>
+    <div class="filter-box">
+      <label for="sessionSelect">
+        <i class="pi pi-qrcode"></i>
+        Session
+      </label>
+
       <select
         id="sessionSelect"
         name="sessionSelect"
         [(ngModel)]="selectedSessionId"
         (ngModelChange)="selectSession($event)"
       >
-        <option value="">All sessions for selected class</option>
+        <option value="">All sessions</option>
         <option *ngFor="let session of classSessions" [value]="session.id">
           {{ formatSessionLabel(session) }}
         </option>
       </select>
     </div>
 
-    <div class="filter-group search-filter">
-      <label for="searchTerm">Search</label>
-      <input
-        id="searchTerm"
-        name="searchTerm"
-        type="text"
-        [(ngModel)]="searchTerm"
-        placeholder="Search student, subject, status..."
-      />
+    <div class="search-box">
+      <label for="searchTerm">
+        <i class="pi pi-search"></i>
+        Search
+      </label>
+
+      <div class="search-input">
+        <i class="pi pi-search"></i>
+        <input
+          id="searchTerm"
+          name="searchTerm"
+          type="text"
+          [(ngModel)]="searchTerm"
+          placeholder="Student, subject, status..."
+          autocomplete="off"
+        />
+
+        <button
+          *ngIf="searchTerm"
+          type="button"
+          class="clear-search"
+          (click)="searchTerm = ''"
+          aria-label="Clear search"
+        >
+          <i class="pi pi-times"></i>
+        </button>
+      </div>
     </div>
   </section>
 
-  <section class="selected-class-card" *ngIf="selectedAssignment as assignment">
-    <div>
-      <span>Selected Class</span>
-      <h2>{{ assignment.subjectCode }} — {{ assignment.subjectName }}</h2>
-      <p>
-        {{ assignment.sectionCode }} • {{ formatProgram(assignment.program) }} •
-        {{ assignment.yearLevel }} • {{ assignment.semester }}
-      </p>
+  <section class="context-strip" *ngIf="selectedAssignment || selectedSession">
+    <div class="context-item class" *ngIf="selectedAssignment as assignment">
+      <i class="pi pi-book"></i>
+
+      <div>
+        <span>Class</span>
+        <strong>{{ assignment.subjectCode }} — {{ assignment.subjectName }}</strong>
+        <small>
+          {{ assignment.sectionCode }} • {{ formatProgram(assignment.program) }} •
+          {{ assignment.yearLevel }} • {{ assignment.semester }}
+        </small>
+      </div>
     </div>
 
-    <strong>{{ assignment.facultyName || currentUser?.fullName || 'Faculty' }}</strong>
-  </section>
+    <div class="context-item session" *ngIf="selectedSession as session">
+      <i class="pi pi-qrcode"></i>
 
-  <section class="selected-class-card session-summary-card" *ngIf="selectedSession as session">
-    <div>
-      <span>Selected Session</span>
-      <h2>{{ session.subjectCode }} — {{ session.subjectName }}</h2>
-      <p>
-        Started {{ formatDateTime(session.startTime || session.createdAt) }} • Ends
-        {{ formatDateTime(session.autoCloseAt || session.expiresAt || session.endTime) }} •
-        {{ session.status | titlecase }}
-      </p>
+      <div>
+        <span>Session</span>
+        <strong>{{ session.sessionCode || session.baseSessionCode || session.id }}</strong>
+        <small>
+          {{ formatDateTime(session.startTime || session.createdAt) }} •
+          {{ session.status | titlecase }}
+        </small>
+      </div>
     </div>
-
-    <strong>
-      Late after {{ session.lateAfterMinutes || session.lateThresholdMinutes || 1 }} minute(s)
-    </strong>
   </section>
 
-  <section class="records-card">
-    <div class="tabs-row">
+  <section class="records-panel">
+    <div class="tabs-bar">
       <div class="tabs">
         <button
           type="button"
           [class.active]="activeTab === 'records'"
           (click)="setActiveTab('records')"
         >
-          Records
-          <span>{{ totalRecords }}</span>
+          <i class="pi pi-check-circle"></i>
+          <span>Records</span>
+          <strong>{{ totalRecords }}</strong>
         </button>
 
         <button
@@ -116,8 +148,9 @@
           [class.active]="activeTab === 'roster'"
           (click)="setActiveTab('roster')"
         >
-          Roster
-          <span>{{ totalRoster }}</span>
+          <i class="pi pi-users"></i>
+          <span>Roster</span>
+          <strong>{{ totalRoster }}</strong>
         </button>
 
         <button
@@ -125,151 +158,41 @@
           [class.active]="activeTab === 'requests'"
           (click)="setActiveTab('requests')"
         >
-          Requests
-          <span *ngIf="totalPending > 0">{{ totalPending }}</span>
+          <i class="pi pi-clock"></i>
+          <span>Requests</span>
+          <strong>{{ totalPending }}</strong>
         </button>
       </div>
 
       <div class="bulk-actions" *ngIf="activeTab !== 'roster' && visibleItems.length > 0">
         <button
           type="button"
-          class="clear-selected"
+          class="trash-btn soft"
           [disabled]="!hasVisibleSelection || isProcessing"
           (click)="clearSelected()"
         >
-          Clear Selected
+          <i class="pi pi-trash"></i>
+          <span>Selected</span>
         </button>
 
         <button
           type="button"
-          class="clear-all"
+          class="trash-btn"
           [disabled]="isProcessing"
           (click)="clearAllVisible()"
         >
-          Clear All
+          <i class="pi pi-trash"></i>
+          <span>All</span>
         </button>
       </div>
     </div>
 
     <div class="loading-state" *ngIf="isLoading">
-      <div class="empty-icon">⌛</div>
-      <h3>Loading attendance data</h3>
-      <p>Please wait while the system retrieves records.</p>
+      <div class="loader"></div>
+      <strong>Loading records</strong>
     </div>
 
     <ng-container *ngIf="!isLoading">
-      <div class="table-wrap" *ngIf="activeTab === 'requests' && filteredRequests.length > 0">
-        <table>
-          <thead>
-            <tr>
-              <th class="check-col">
-                <input
-                  type="checkbox"
-                  [checked]="allVisibleSelected"
-                  (change)="toggleSelectAllVisible($any($event.target).checked)"
-                />
-              </th>
-              <th>Student</th>
-              <th>Class / Session</th>
-              <th>Suggested Status</th>
-              <th>Reason</th>
-              <th>Date</th>
-              <th class="action-col">Action</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr *ngFor="let request of filteredRequests">
-              <td class="check-col">
-                <input
-                  type="checkbox"
-                  [checked]="isItemSelected(request.id)"
-                  (change)="toggleSelectItem(request.id, $any($event.target).checked)"
-                />
-              </td>
-
-              <td>
-                <strong>{{ request.studentName || 'Unknown Student' }}</strong>
-                <small>{{ request.studentId || 'No ID' }}</small>
-              </td>
-
-              <td>
-                <strong>{{ request.subjectCode }} — {{ request.subjectName }}</strong>
-                <small>{{ request.sectionCode }} • {{ request.semester }}</small>
-                <small>
-                  Session:
-                  {{
-                    request.sessionCode ||
-                      request.baseSessionCode ||
-                      request.submittedAccessCode ||
-                      request.sessionId ||
-                      'N/A'
-                  }}
-                </small>
-              </td>
-
-              <td>
-                <span class="status-pill" [class]="request.suggestedStatus || request.status">
-                  {{
-                    request.suggestedStatus
-                      ? (request.suggestedStatus | titlecase)
-                      : (request.status | titlecase)
-                  }}
-                </span>
-
-                <small *ngIf="request.suggestedStatus === 'late' && request.lateMinutes">
-                  {{ request.lateMinutes }} minute(s) late
-                </small>
-              </td>
-
-              <td>
-                <p class="reason-text">
-                  {{ request.reason || request.validationReason || 'No reason provided' }}
-                </p>
-              </td>
-
-              <td>
-                <span>{{ formatDateTime(request.createdAt || request.submittedAt) }}</span>
-              </td>
-
-              <td class="action-col">
-                <div class="row-actions" *ngIf="request.status === 'pending'; else requestDone">
-                  <button
-                    type="button"
-                    class="approve-btn"
-                    [disabled]="isProcessing"
-                    (click)="approveRequest(request)"
-                  >
-                    Approve
-                  </button>
-
-                  <button
-                    type="button"
-                    class="reject-btn"
-                    [disabled]="isProcessing"
-                    (click)="rejectRequest(request)"
-                  >
-                    Reject
-                  </button>
-                </div>
-
-                <ng-template #requestDone>
-                  <span class="status-pill" [class]="request.status">
-                    {{ request.status | titlecase }}
-                  </span>
-                </ng-template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div class="empty-state" *ngIf="activeTab === 'requests' && filteredRequests.length === 0">
-        <div class="empty-icon">✓</div>
-        <h3>No attendance requests</h3>
-        <p>Irregular or sit-in student requests for the selected session will appear here.</p>
-      </div>
-
       <div class="table-wrap" *ngIf="activeTab === 'records' && filteredRecords.length > 0">
         <table>
           <thead>
@@ -282,7 +205,7 @@
                 />
               </th>
               <th>Student</th>
-              <th>Subject / Session</th>
+              <th>Class</th>
               <th>Status</th>
               <th>Method</th>
               <th>Date</th>
@@ -300,49 +223,73 @@
               </td>
 
               <td>
-                <strong>{{ record.studentName || 'Unknown Student' }}</strong>
-                <small>{{ record.studentId || 'No ID' }}</small>
+                <div class="student-cell">
+                  <span class="avatar">
+                    {{ (record.studentName || 'S').charAt(0) }}
+                  </span>
+
+                  <div>
+                    <strong>{{ record.studentName || 'Unknown Student' }}</strong>
+                    <small>{{ record.studentId || 'No ID' }}</small>
+                  </div>
+                </div>
               </td>
 
               <td>
-                <strong>{{ record.subjectCode }} — {{ record.subjectName }}</strong>
-                <small>{{ record.sectionCode }} • {{ record.semester }}</small>
-                <small>
-                  Session:
-                  {{
-                    record.sessionCode ||
-                      record.baseSessionCode ||
-                      record.submittedAccessCode ||
-                      record.sessionId ||
-                      'N/A'
-                  }}
-                </small>
+                <div class="class-cell">
+                  <strong>{{ record.subjectCode }} — {{ record.subjectName }}</strong>
+                  <small>{{ record.sectionCode }} • {{ record.semester }}</small>
+                  <small class="session-code">
+                    <i class="pi pi-qrcode"></i>
+                    {{
+                      record.sessionCode ||
+                        record.baseSessionCode ||
+                        record.submittedAccessCode ||
+                        record.sessionId ||
+                        'N/A'
+                    }}
+                  </small>
+                </div>
               </td>
 
               <td>
-                <span class="status-pill" [class]="record.status">
-                  {{ record.status | titlecase }}
+                <div class="status-stack">
+                  <span class="status-pill" [ngClass]="record.status">
+                    <i
+                      [class]="
+                        record.status === 'present'
+                          ? 'pi pi-check-circle'
+                          : record.status === 'late'
+                            ? 'pi pi-clock'
+                            : record.status === 'absent'
+                              ? 'pi pi-times-circle'
+                              : 'pi pi-info-circle'
+                      "
+                    ></i>
+                    {{ record.status | titlecase }}
+                  </span>
+
+                  <small *ngIf="record.status === 'late' && record.lateMinutes">
+                    {{ record.lateMinutes }}m late
+                  </small>
+
+                  <small *ngIf="record.status === 'absent' && record.autoAbsent"> Auto </small>
+
+                  <small *ngIf="record.attendanceDecisionSource">
+                    {{ record.attendanceDecisionSource }}
+                  </small>
+                </div>
+              </td>
+
+              <td>
+                <span class="method-chip">
+                  <i class="pi pi-fingerprint"></i>
+                  {{ record.method || 'N/A' }}
                 </span>
-
-                <small *ngIf="record.status === 'late' && record.lateMinutes">
-                  {{ record.lateMinutes }} minute(s) late
-                </small>
-
-                <small *ngIf="record.status === 'absent' && record.autoAbsent">
-                  Auto-generated
-                </small>
-
-                <small *ngIf="record.attendanceDecisionSource">
-                  {{ record.attendanceDecisionSource }}
-                </small>
               </td>
 
               <td>
-                <span class="method-text">{{ record.method || 'N/A' }}</span>
-              </td>
-
-              <td>
-                <span>
+                <span class="date-text">
                   {{
                     formatDateTime(
                       record.submittedAt ||
@@ -359,16 +306,15 @@
       </div>
 
       <div class="empty-state" *ngIf="activeTab === 'records' && filteredRecords.length === 0">
-        <div class="empty-icon">▦</div>
-        <h3>No attendance records</h3>
-        <p>Student attendance submissions for the selected session will appear here.</p>
+        <i class="pi pi-inbox"></i>
+        <strong>No records</strong>
       </div>
 
       <div class="roster-grid" *ngIf="activeTab === 'roster' && classRoster.length > 0">
         <article class="roster-card" *ngFor="let student of classRoster">
-          <div class="student-avatar">
+          <span class="student-avatar">
             {{ (student.fullName || 'S').charAt(0) }}
-          </div>
+          </span>
 
           <div class="student-info">
             <h3>{{ student.fullName }}</h3>
@@ -381,20 +327,174 @@
 
           <span
             class="status-pill roster-status"
-            [class]="getStudentAttendanceStatus(student).toLowerCase()"
+            [ngClass]="getStudentAttendanceStatus(student).toLowerCase()"
           >
+            <i
+              [class]="
+                getStudentAttendanceStatus(student).toLowerCase() === 'present'
+                  ? 'pi pi-check-circle'
+                  : getStudentAttendanceStatus(student).toLowerCase() === 'late'
+                    ? 'pi pi-clock'
+                    : getStudentAttendanceStatus(student).toLowerCase() === 'absent'
+                      ? 'pi pi-times-circle'
+                      : 'pi pi-minus-circle'
+              "
+            ></i>
             {{ getStudentAttendanceStatus(student) }}
           </span>
         </article>
       </div>
 
       <div class="empty-state" *ngIf="activeTab === 'roster' && classRoster.length === 0">
-        <div class="empty-icon">⌕</div>
-        <h3>No students found</h3>
-        <p>
-          No enrolled student matches this class. Check the student Program, Year Level, and Section
-          values.
-        </p>
+        <i class="pi pi-users"></i>
+        <strong>No students</strong>
+      </div>
+
+      <div class="table-wrap" *ngIf="activeTab === 'requests' && filteredRequests.length > 0">
+        <table>
+          <thead>
+            <tr>
+              <th class="check-col">
+                <input
+                  type="checkbox"
+                  [checked]="allVisibleSelected"
+                  (change)="toggleSelectAllVisible($any($event.target).checked)"
+                />
+              </th>
+              <th>Student</th>
+              <th>Class</th>
+              <th>Status</th>
+              <th>Reason</th>
+              <th>Date</th>
+              <th class="action-col">Action</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let request of filteredRequests">
+              <td class="check-col">
+                <input
+                  type="checkbox"
+                  [checked]="isItemSelected(request.id)"
+                  (change)="toggleSelectItem(request.id, $any($event.target).checked)"
+                />
+              </td>
+
+              <td>
+                <div class="student-cell">
+                  <span class="avatar warning">
+                    {{ (request.studentName || 'S').charAt(0) }}
+                  </span>
+
+                  <div>
+                    <strong>{{ request.studentName || 'Unknown Student' }}</strong>
+                    <small>{{ request.studentId || 'No ID' }}</small>
+                  </div>
+                </div>
+              </td>
+
+              <td>
+                <div class="class-cell">
+                  <strong>{{ request.subjectCode }} — {{ request.subjectName }}</strong>
+                  <small>{{ request.sectionCode }} • {{ request.semester }}</small>
+                  <small class="session-code">
+                    <i class="pi pi-qrcode"></i>
+                    {{
+                      request.sessionCode ||
+                        request.baseSessionCode ||
+                        request.submittedAccessCode ||
+                        request.sessionId ||
+                        'N/A'
+                    }}
+                  </small>
+                </div>
+              </td>
+
+              <td>
+                <div class="status-stack">
+                  <span class="status-pill" [ngClass]="request.suggestedStatus || request.status">
+                    <i
+                      [class]="
+                        request.suggestedStatus === 'late'
+                          ? 'pi pi-clock'
+                          : request.status === 'approved'
+                            ? 'pi pi-check-circle'
+                            : request.status === 'rejected'
+                              ? 'pi pi-times-circle'
+                              : 'pi pi-exclamation-triangle'
+                      "
+                    ></i>
+                    {{
+                      request.suggestedStatus
+                        ? (request.suggestedStatus | titlecase)
+                        : (request.status | titlecase)
+                    }}
+                  </span>
+
+                  <small *ngIf="request.suggestedStatus === 'late' && request.lateMinutes">
+                    {{ request.lateMinutes }}m late
+                  </small>
+                </div>
+              </td>
+
+              <td>
+                <p class="reason-text">
+                  {{ request.reason || request.validationReason || '—' }}
+                </p>
+              </td>
+
+              <td>
+                <span class="date-text">
+                  {{ formatDateTime(request.createdAt || request.submittedAt) }}
+                </span>
+              </td>
+
+              <td class="action-col">
+                <div class="row-actions" *ngIf="request.status === 'pending'; else requestDone">
+                  <button
+                    type="button"
+                    class="approve-btn"
+                    [disabled]="isProcessing"
+                    (click)="approveRequest(request)"
+                    title="Approve"
+                  >
+                    <i class="pi pi-check"></i>
+                  </button>
+
+                  <button
+                    type="button"
+                    class="reject-btn"
+                    [disabled]="isProcessing"
+                    (click)="rejectRequest(request)"
+                    title="Reject"
+                  >
+                    <i class="pi pi-times"></i>
+                  </button>
+                </div>
+
+                <ng-template #requestDone>
+                  <span class="status-pill" [ngClass]="request.status">
+                    <i
+                      [class]="
+                        request.status === 'approved'
+                          ? 'pi pi-check-circle'
+                          : request.status === 'rejected'
+                            ? 'pi pi-times-circle'
+                            : 'pi pi-info-circle'
+                      "
+                    ></i>
+                    {{ request.status | titlecase }}
+                  </span>
+                </ng-template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="empty-state" *ngIf="activeTab === 'requests' && filteredRequests.length === 0">
+        <i class="pi pi-check-circle"></i>
+        <strong>No requests</strong>
       </div>
     </ng-container>
   </section>

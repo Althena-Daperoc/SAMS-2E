@@ -1,10 +1,11 @@
-import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { Component } from '@angular/core';
 import { FormsModule, NgForm } from '@angular/forms';
-import { Router, ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
-import { AuthService } from '../../../core/services/auth.service';
 import { AlertService } from '../../../core/services/alert.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { User, UserRole } from '../../../models/user.model';
 
 @Component({
   selector: 'app-login',
@@ -61,16 +62,11 @@ export class Login {
 
         await this.alertService.toastSuccess(`Welcome back, ${user.fullName}!`);
 
-        const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
-
         this.isSubmitting = false;
 
-        if (user.role === 'student') {
-          this.router.navigate([returnUrl || '/student/dashboard']);
-          return;
-        }
+        const targetRoute = this.resolveLoginRedirect(user);
 
-        this.router.navigate([returnUrl || '/dashboard']);
+        this.router.navigate([targetRoute]);
       },
       error: async () => {
         this.isSubmitting = false;
@@ -82,5 +78,50 @@ export class Login {
         );
       },
     });
+  }
+
+  private resolveLoginRedirect(user: User): string {
+    const fallbackRoute = this.authService.getDefaultRouteByRole(user.role);
+    const returnUrl = this.route.snapshot.queryParamMap.get('returnUrl');
+
+    if (!returnUrl || returnUrl === '/login') {
+      return fallbackRoute;
+    }
+
+    if (!this.isReturnUrlSafeForRole(returnUrl, user.role)) {
+      return fallbackRoute;
+    }
+
+    return returnUrl;
+  }
+
+  private isReturnUrlSafeForRole(returnUrl: string, role: UserRole): boolean {
+    if (!returnUrl.startsWith('/')) {
+      return false;
+    }
+
+    if (returnUrl.startsWith('/login')) {
+      return false;
+    }
+
+    if (role === 'parent') {
+      return returnUrl.startsWith('/parent') || returnUrl === '/settings';
+    }
+
+    if (role === 'student') {
+      return (
+        returnUrl.startsWith('/student') || returnUrl === '/messages' || returnUrl === '/settings'
+      );
+    }
+
+    if (role === 'teacher') {
+      return !returnUrl.startsWith('/parent') && !returnUrl.startsWith('/student');
+    }
+
+    if (role === 'admin') {
+      return !returnUrl.startsWith('/parent') && !returnUrl.startsWith('/student');
+    }
+
+    return false;
   }
 }

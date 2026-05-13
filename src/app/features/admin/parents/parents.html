@@ -1,107 +1,121 @@
-<div class="parents-page">
-  <div class="page-header">
-    <div>
+<section class="parents-page">
+  <div class="parents-hero">
+    <div class="hero-copy">
       <span class="eyebrow">Parent Records</span>
-      <h2>Parents</h2>
-      <p>Manage parent records, linked children, Excel imports, and archived parent data.</p>
+      <h1>Parents</h1>
+      <p>Manage guardians, linked students, imports, and archived records.</p>
     </div>
 
-    <div class="header-actions">
-      <button class="ghost-btn" type="button" (click)="goBack()">← Back</button>
+    <div class="hero-actions">
+      <button class="ghost-btn" type="button" (click)="goBack()" aria-label="Go back">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back</span>
+      </button>
 
       <label class="import-btn">
-        Import Excel
+        <i class="pi pi-upload"></i>
+        <span>Import</span>
         <input type="file" accept=".xlsx,.xls" hidden (change)="onExcelSelected($event)" />
       </label>
 
       <button class="add-btn" type="button" (click)="openAddModal()">
-        <span>+</span>
-        Add Parent
+        <i class="pi pi-plus"></i>
+        <span>Add Parent</span>
       </button>
     </div>
   </div>
 
   <div class="summary-grid">
-    <div class="summary-card">
-      <p>Total Active Parents</p>
-      <h3>{{ activeParents.length }}</h3>
+    <div class="summary-card tone-primary">
+      <span class="summary-icon">
+        <i class="pi pi-users"></i>
+      </span>
+      <span class="summary-label">Active</span>
+      <strong>{{ activeParents.length }}</strong>
     </div>
 
-    <div class="summary-card">
-      <p>Archived Parents</p>
-      <h3>{{ archivedParents.length }}</h3>
+    <div class="summary-card tone-warning">
+      <span class="summary-icon">
+        <i class="pi pi-folder"></i>
+      </span>
+      <span class="summary-label">Archive</span>
+      <strong>{{ archivedParents.length }}</strong>
     </div>
 
-    <div class="summary-card">
-      <p>Total Parent Records</p>
-      <h3>{{ totalParentRecords }}</h3>
+    <div class="summary-card tone-success">
+      <span class="summary-icon">
+        <i class="pi pi-database"></i>
+      </span>
+      <span class="summary-label">Total Records</span>
+      <strong>{{ totalParentRecords }}</strong>
     </div>
   </div>
 
-  <div class="parents-card">
-    <div class="card-header">
+  <div class="records-card">
+    <div class="records-header">
       <div>
-        <h3>{{ activeTab === 'active' ? 'Active Parents' : 'Archived Parents' }}</h3>
-        <p>
-          {{
-            activeTab === 'active'
-              ? 'Parents currently linked to enrolled student records.'
-              : 'Archived parent records can be restored or permanently deleted.'
-          }}
-        </p>
+        <span class="eyebrow">{{ activeTab === 'active' ? 'Active List' : 'Archive' }}</span>
+        <h2>{{ activeTab === 'active' ? 'Parent Records' : 'Archived Parents' }}</h2>
       </div>
 
-      <div class="tab-buttons">
+      <div class="tab-buttons" role="tablist">
         <button type="button" [class.active]="activeTab === 'active'" (click)="setTab('active')">
-          Active
+          <i class="pi pi-users"></i>
+          <span>Active</span>
         </button>
 
         <button type="button" [class.active]="activeTab === 'archive'" (click)="setTab('archive')">
-          Archive
+          <i class="pi pi-folder"></i>
+          <span>Archive</span>
         </button>
       </div>
     </div>
 
-    <div class="parents-tools">
+    <div class="toolbar-row">
       <div class="search-box">
-        <span class="search-icon">⌕</span>
-
+        <i class="pi pi-search"></i>
         <input
           type="text"
-          name="parentSearch"
+          name="searchTerm"
           [(ngModel)]="searchTerm"
-          placeholder="Search by parent ID, name, email, contact, relationship, child, or status..."
+          placeholder="Search parent, child, ID, email, contact..."
+          autocomplete="off"
         />
 
         <button
           *ngIf="searchTerm"
           type="button"
-          class="clear-search-btn"
+          class="clear-search"
           (click)="clearSearch()"
           aria-label="Clear search"
         >
-          ×
+          <i class="pi pi-times"></i>
         </button>
+      </div>
+
+      <div class="format-chip" *ngIf="activeTab === 'active'">
+        <i class="pi pi-file-excel"></i>
+        <span>Parent ID, Full Name, Email, Contact, Relationship, Student ID</span>
       </div>
     </div>
 
-    <div class="format-note" *ngIf="activeTab === 'active'">
-      <strong>Excel columns:</strong>
-      Parent ID, Full Name, Email, Contact Number, Relationship, Student ID, Status
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="loader"></div>
+      <strong>Loading parents</strong>
+      <p>Please wait.</p>
     </div>
 
-    <div class="loading-state" *ngIf="isLoading">Loading parent records...</div>
+    <div class="empty-state" *ngIf="!isLoading && filteredParents.length === 0">
+      <span class="empty-icon">
+        <i [class]="activeTab === 'active' ? 'pi pi-users' : 'pi pi-folder'"></i>
+      </span>
 
-    <div class="empty-state" *ngIf="!isLoading && visibleParents.length === 0">
-      <div class="empty-icon">👪</div>
-
-      <h3>{{ activeTab === 'active' ? 'No active parents yet' : 'Archive is empty' }}</h3>
-
+      <strong>{{ activeTab === 'active' ? 'No parents found' : 'Archive is empty' }}</strong>
       <p>
         {{
           activeTab === 'active'
-            ? 'Add parent records manually or import an Excel file with valid student links.'
-            : 'Archived parents will appear here when records are moved out of the active list.'
+            ? 'Try another search or add a parent record.'
+            : 'Archived parent records will appear here.'
         }}
       </p>
 
@@ -111,24 +125,9 @@
         class="empty-btn"
         (click)="openAddModal()"
       >
-        Add Parent
+        <i class="pi pi-plus"></i>
+        <span>Add Parent</span>
       </button>
-    </div>
-
-    <div
-      class="empty-state"
-      *ngIf="!isLoading && visibleParents.length > 0 && filteredParents.length === 0"
-    >
-      <div class="empty-icon">🔎</div>
-
-      <h3>No matching parent found</h3>
-
-      <p>
-        No parent record matches "<strong>{{ searchTerm }}</strong
-        >".
-      </p>
-
-      <button type="button" class="empty-btn" (click)="clearSearch()">Clear Search</button>
     </div>
 
     <div class="table-wrapper" *ngIf="!isLoading && filteredParents.length > 0">
@@ -137,11 +136,11 @@
           <tr>
             <th>#</th>
             <th>Parent ID</th>
-            <th>Full Name</th>
+            <th>Parent</th>
             <th>Email</th>
             <th>Contact</th>
-            <th>Relationship</th>
-            <th>Linked Child/Children</th>
+            <th>Relation</th>
+            <th>Linked Student</th>
             <th>Status</th>
             <th class="actions-col">Actions</th>
           </tr>
@@ -149,7 +148,7 @@
 
         <tbody>
           <tr *ngFor="let parent of filteredParents; let i = index">
-            <td>{{ i + 1 }}</td>
+            <td class="row-number">{{ i + 1 }}</td>
 
             <td>
               <span class="parent-id">{{ parent.parentId }}</span>
@@ -160,20 +159,36 @@
                 <div class="avatar">
                   {{ parent.fullName.charAt(0) || '?' }}
                 </div>
-                <span>{{ parent.fullName }}</span>
+
+                <div>
+                  <strong>{{ parent.fullName }}</strong>
+                </div>
               </div>
             </td>
 
-            <td>{{ parent.email }}</td>
-            <td>{{ parent.contactNumber }}</td>
-            <td>{{ parent.relationship }}</td>
+            <td>{{ parent.email || 'No email' }}</td>
+            <td>{{ parent.contactNumber || 'No contact' }}</td>
 
             <td>
-              <div class="child-list">
+              <span class="relationship-pill">{{ parent.relationship || 'Guardian' }}</span>
+            </td>
+
+            <td>
+              <div
+                class="linked-students"
+                *ngIf="
+                  getLinkedStudentNames(parent.linkedStudentIds).length > 0;
+                  else noLinkedStudent
+                "
+              >
                 <span *ngFor="let child of getLinkedStudentNames(parent.linkedStudentIds)">
                   {{ child }}
                 </span>
               </div>
+
+              <ng-template #noLinkedStudent>
+                <span class="muted-text">No linked child</span>
+              </ng-template>
             </td>
 
             <td>
@@ -184,26 +199,53 @@
                 [disabled]="activeTab === 'archive'"
                 (click)="toggleParentStatus(parent)"
               >
-                {{ parent.status || 'active' }}
+                <i [class]="parent.status === 'inactive' ? 'pi pi-ban' : 'pi pi-check-circle'"></i>
+                <span>{{ parent.status || 'active' }}</span>
               </button>
             </td>
 
             <td>
               <div class="action-buttons" *ngIf="activeTab === 'active'">
-                <button type="button" class="edit-btn" (click)="openEditModal(parent)">Edit</button>
+                <button
+                  type="button"
+                  class="icon-action edit-btn"
+                  (click)="openEditModal(parent)"
+                  aria-label="Edit parent"
+                  title="Edit"
+                >
+                  <i class="pi pi-pencil"></i>
+                </button>
 
-                <button type="button" class="archive-btn" (click)="archiveParent(parent)">
-                  Archive
+                <button
+                  type="button"
+                  class="icon-action archive-btn"
+                  (click)="archiveParent(parent)"
+                  aria-label="Archive parent"
+                  title="Archive"
+                >
+                  <i class="pi pi-folder"></i>
                 </button>
               </div>
 
               <div class="action-buttons" *ngIf="activeTab === 'archive'">
-                <button type="button" class="restore-btn" (click)="restoreParent(parent)">
-                  Restore
+                <button
+                  type="button"
+                  class="icon-action restore-btn"
+                  (click)="restoreParent(parent)"
+                  aria-label="Restore parent"
+                  title="Restore"
+                >
+                  <i class="pi pi-refresh"></i>
                 </button>
 
-                <button type="button" class="delete-btn" (click)="deleteParentPermanently(parent)">
-                  Delete
+                <button
+                  type="button"
+                  class="icon-action delete-btn"
+                  (click)="deleteParentPermanently(parent)"
+                  aria-label="Delete permanently"
+                  title="Delete permanently"
+                >
+                  <i class="pi pi-trash"></i>
                 </button>
               </div>
             </td>
@@ -212,61 +254,36 @@
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <div class="modal-backdrop" *ngIf="showFormModal">
   <div class="modal-card">
     <div class="modal-header">
       <div>
-        <h3>{{ isEditing ? 'Edit Parent' : 'Add Parent' }}</h3>
-        <p>
-          {{
-            isEditing
-              ? 'Update this parent record and linked child information.'
-              : 'Register a parent and link them to an enrolled student.'
-          }}
-        </p>
+        <span class="eyebrow">Parent</span>
+        <h3>{{ isEditing ? 'Edit Record' : 'Add Parent' }}</h3>
       </div>
 
-      <button type="button" class="close-btn" (click)="closeFormModal()">×</button>
+      <button type="button" class="close-btn" (click)="closeFormModal()" aria-label="Close modal">
+        <i class="pi pi-times"></i>
+      </button>
     </div>
 
     <form (ngSubmit)="saveParent()">
       <div class="form-grid">
         <div class="form-group">
           <label for="parentId">Parent ID</label>
-          <input
-            id="parentId"
-            type="text"
-            name="parentId"
-            [(ngModel)]="form.parentId"
-            placeholder="Example: PAR-001"
-            required
-          />
+          <input id="parentId" type="text" name="parentId" [(ngModel)]="form.parentId" required />
         </div>
 
         <div class="form-group">
           <label for="fullName">Full Name</label>
-          <input
-            id="fullName"
-            type="text"
-            name="fullName"
-            [(ngModel)]="form.fullName"
-            placeholder="Enter parent full name"
-            required
-          />
+          <input id="fullName" type="text" name="fullName" [(ngModel)]="form.fullName" required />
         </div>
 
         <div class="form-group">
           <label for="email">Email</label>
-          <input
-            id="email"
-            type="email"
-            name="email"
-            [(ngModel)]="form.email"
-            placeholder="parent@email.com"
-            required
-          />
+          <input id="email" type="email" name="email" [(ngModel)]="form.email" required />
         </div>
 
         <div class="form-group">
@@ -276,7 +293,6 @@
             type="text"
             name="contactNumber"
             [(ngModel)]="form.contactNumber"
-            placeholder="09xxxxxxxxx"
             required
           />
         </div>
@@ -300,39 +316,49 @@
         </div>
       </div>
 
-      <div class="link-section">
-        <h4>Link Child/Children</h4>
-        <p>Select one or more enrolled students to connect to this parent account.</p>
+      <div class="student-link-panel">
+        <div class="link-header">
+          <div>
+            <span class="eyebrow">Linked Child</span>
+            <h4>Students</h4>
+          </div>
 
-        <div class="student-link-list" *ngIf="students.length > 0">
-          <label class="student-link-item" *ngFor="let student of students">
+          <span class="selected-count">{{ form.linkedStudentIds.length }} selected</span>
+        </div>
+
+        <div class="student-link-list" *ngIf="students.length > 0; else noStudentsAvailable">
+          <label class="student-check" *ngFor="let student of students">
             <input
               type="checkbox"
-              [checked]="isStudentLinked(student.id || '')"
-              (change)="onStudentLinkChange(student.id || '', $event)"
-              [disabled]="!student.id"
+              [checked]="student.id ? isStudentLinked(student.id) : false"
+              (change)="student.id && onStudentLinkChange(student.id, $event)"
             />
 
-            <span>
+            <span class="check-ui">
+              <i class="pi pi-check"></i>
+            </span>
+
+            <span class="student-check-info">
               <strong>{{ student.fullName }}</strong>
-              <small
-                >{{ student.studentId }} • {{ student.program }} • {{ student.yearLevel }} •
-                {{ student.section }}</small
-              >
+              <small>{{ student.studentId }} • {{ student.section || 'No section' }}</small>
             </span>
           </label>
         </div>
 
-        <div class="no-students-note" *ngIf="students.length === 0">
-          No active student records available for linking.
-        </div>
+        <ng-template #noStudentsAvailable>
+          <div class="mini-empty">
+            <i class="pi pi-users"></i>
+            <span>No active students available.</span>
+          </div>
+        </ng-template>
       </div>
 
       <div class="modal-actions">
         <button type="button" class="cancel-btn" (click)="closeFormModal()">Cancel</button>
 
         <button type="submit" class="save-btn" [disabled]="isSaving">
-          {{ isSaving ? 'Saving...' : isEditing ? 'Save Changes' : 'Save Parent' }}
+          <i class="pi pi-save"></i>
+          <span>{{ isSaving ? 'Saving' : 'Save Changes' }}</span>
         </button>
       </div>
     </form>
@@ -343,34 +369,36 @@
   <div class="modal-card import-modal">
     <div class="modal-header">
       <div>
-        <h3>Import Parents from Excel</h3>
-        <p>{{ importFileName || 'Review imported parent records before saving.' }}</p>
+        <span class="eyebrow">Excel Import</span>
+        <h3>Review Parents</h3>
+        <p>{{ importFileName || 'Imported file' }}</p>
       </div>
 
-      <button type="button" class="close-btn" (click)="closeImportModal()">×</button>
+      <button type="button" class="close-btn" (click)="closeImportModal()" aria-label="Close modal">
+        <i class="pi pi-times"></i>
+      </button>
     </div>
 
     <div class="import-summary">
-      <div>
-        <span>Valid Records</span>
+      <div class="import-stat success">
+        <span>Valid</span>
         <strong>{{ validImportCount }}</strong>
       </div>
 
-      <div>
-        <span>Needs Review</span>
+      <div class="import-stat warning">
+        <span>Review</span>
         <strong>{{ invalidImportCount }}</strong>
       </div>
 
-      <div>
-        <span>Total Rows</span>
+      <div class="import-stat neutral">
+        <span>Total</span>
         <strong>{{ importPreview.length }}</strong>
       </div>
     </div>
 
-    <div class="format-note">
-      Required columns:
-      <strong>Parent ID, Full Name, Email, Contact Number, Relationship, Student ID</strong>.
-      Optional column: <strong>Status</strong>.
+    <div class="format-chip full">
+      <i class="pi pi-info-circle"></i>
+      <span>Required: Parent ID, Full Name, Email, Contact Number, Relationship, Student ID.</span>
     </div>
 
     <div class="table-wrapper import-preview-table" *ngIf="importPreview.length > 0">
@@ -382,10 +410,9 @@
             <th>Full Name</th>
             <th>Email</th>
             <th>Contact</th>
-            <th>Relationship</th>
-            <th>Student ID Input</th>
+            <th>Relation</th>
+            <th>Student ID</th>
             <th>Linked Student</th>
-            <th>Status</th>
             <th>Validation</th>
           </tr>
         </thead>
@@ -400,15 +427,25 @@
             <td>{{ parent.relationship || '—' }}</td>
             <td>{{ parent.studentReferenceText || '—' }}</td>
             <td>
-              <div class="child-list">
+              <div
+                class="linked-students"
+                *ngIf="parent.linkedStudentNames.length > 0; else noPreviewStudent"
+              >
                 <span *ngFor="let child of parent.linkedStudentNames">
                   {{ child }}
                 </span>
               </div>
+
+              <ng-template #noPreviewStudent>
+                <span class="muted-text">No match</span>
+              </ng-template>
             </td>
-            <td>{{ parent.status }}</td>
             <td>
-              <span class="valid-badge" *ngIf="parent.isValid">Ready</span>
+              <span class="valid-badge" *ngIf="parent.isValid">
+                <i class="pi pi-check-circle"></i>
+                Ready
+              </span>
+
               <span class="error-text" *ngIf="!parent.isValid">
                 {{ parent.errors.join(', ') }}
               </span>
@@ -427,7 +464,8 @@
         [disabled]="isImporting || validImportCount === 0"
         (click)="confirmImport()"
       >
-        {{ isImporting ? 'Importing...' : 'Confirm Import' }}
+        <i class="pi pi-check"></i>
+        <span>{{ isImporting ? 'Importing' : 'Confirm Import' }}</span>
       </button>
     </div>
   </div>

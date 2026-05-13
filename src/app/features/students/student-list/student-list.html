@@ -1,107 +1,121 @@
-<div class="student-page">
-  <div class="page-header">
-    <div>
+<section class="student-page">
+  <div class="students-hero">
+    <div class="hero-copy">
       <span class="eyebrow">Student Records</span>
-      <h2>Students</h2>
-      <p>Manage active student records, Excel imports, and archived student data.</p>
+      <h1>Students</h1>
+      <p>Manage learners, imports, and archived records.</p>
     </div>
 
-    <div class="header-actions">
-      <button class="ghost-btn" type="button" (click)="goBack()">← Back</button>
+    <div class="hero-actions">
+      <button class="ghost-btn" type="button" (click)="goBack()" aria-label="Go back">
+        <i class="pi pi-arrow-left"></i>
+        <span>Back</span>
+      </button>
 
       <label class="import-btn">
-        Import Excel
+        <i class="pi pi-upload"></i>
+        <span>Import</span>
         <input type="file" accept=".xlsx,.xls" hidden (change)="onExcelSelected($event)" />
       </label>
 
       <button class="add-btn" type="button" (click)="goToAddStudent()">
-        <span>+</span>
-        Add Student
+        <i class="pi pi-plus"></i>
+        <span>Add Student</span>
       </button>
     </div>
   </div>
 
   <div class="summary-grid">
-    <div class="summary-card">
-      <p>Total Active Students</p>
-      <h3>{{ activeStudents.length }}</h3>
+    <div class="summary-card tone-primary">
+      <span class="summary-icon">
+        <i class="pi pi-users"></i>
+      </span>
+      <span class="summary-label">Active</span>
+      <strong>{{ activeStudents.length }}</strong>
     </div>
 
-    <div class="summary-card">
-      <p>Archived Students</p>
-      <h3>{{ archivedStudents.length }}</h3>
+    <div class="summary-card tone-warning">
+      <span class="summary-icon">
+        <i class="pi pi-folder"></i>
+      </span>
+      <span class="summary-label">Archive</span>
+      <strong>{{ archivedStudents.length }}</strong>
     </div>
 
-    <div class="summary-card">
-      <p>Total Student Records</p>
-      <h3>{{ totalStudentRecords }}</h3>
+    <div class="summary-card tone-success">
+      <span class="summary-icon">
+        <i class="pi pi-database"></i>
+      </span>
+      <span class="summary-label">Total Records</span>
+      <strong>{{ totalStudentRecords }}</strong>
     </div>
   </div>
 
-  <div class="student-card">
-    <div class="card-header">
+  <div class="records-card">
+    <div class="records-header">
       <div>
-        <h3>{{ activeTab === 'active' ? 'Active Students' : 'Archived Students' }}</h3>
-        <p>
-          {{
-            activeTab === 'active'
-              ? 'Students currently available for attendance monitoring and account linking.'
-              : 'Archived students can be restored or permanently deleted.'
-          }}
-        </p>
+        <span class="eyebrow">{{ activeTab === 'active' ? 'Active List' : 'Archive' }}</span>
+        <h2>{{ activeTab === 'active' ? 'Student Records' : 'Archived Students' }}</h2>
       </div>
 
-      <div class="tab-buttons">
+      <div class="tab-buttons" role="tablist">
         <button type="button" [class.active]="activeTab === 'active'" (click)="setTab('active')">
-          Active
+          <i class="pi pi-users"></i>
+          <span>Active</span>
         </button>
 
         <button type="button" [class.active]="activeTab === 'archive'" (click)="setTab('archive')">
-          Archive
+          <i class="pi pi-folder"></i>
+          <span>Archive</span>
         </button>
       </div>
     </div>
 
-    <div class="student-tools">
+    <div class="toolbar-row">
       <div class="search-box">
-        <span class="search-icon">⌕</span>
-
+        <i class="pi pi-search"></i>
         <input
           type="text"
-          name="studentSearch"
+          name="searchTerm"
           [(ngModel)]="searchTerm"
-          placeholder="Search by student ID, name, program, year level, section, email, or status..."
+          placeholder="Search student, ID, section, email..."
+          autocomplete="off"
         />
 
         <button
           *ngIf="searchTerm"
           type="button"
-          class="clear-search-btn"
+          class="clear-search"
           (click)="clearSearch()"
           aria-label="Clear search"
         >
-          ×
+          <i class="pi pi-times"></i>
         </button>
+      </div>
+
+      <div class="format-chip" *ngIf="activeTab === 'active'">
+        <i class="pi pi-file-excel"></i>
+        <span>Student ID, Full Name, Program, Year, Section, Email</span>
       </div>
     </div>
 
-    <div class="format-note" *ngIf="activeTab === 'active'">
-      <strong>Excel columns:</strong>
-      Student ID, Full Name, Program, Year Level, Section, Email
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="loader"></div>
+      <strong>Loading students</strong>
+      <p>Please wait.</p>
     </div>
 
-    <div class="loading-state" *ngIf="isLoading">Loading students...</div>
+    <div class="empty-state" *ngIf="!isLoading && filteredVisibleStudents.length === 0">
+      <span class="empty-icon">
+        <i [class]="activeTab === 'active' ? 'pi pi-users' : 'pi pi-folder'"></i>
+      </span>
 
-    <div class="empty-state" *ngIf="!isLoading && visibleStudents.length === 0">
-      <div class="empty-icon">👥</div>
-
-      <h3>{{ activeTab === 'active' ? 'No active students yet' : 'Archive is empty' }}</h3>
-
+      <strong>{{ activeTab === 'active' ? 'No students found' : 'Archive is empty' }}</strong>
       <p>
         {{
           activeTab === 'active'
-            ? 'Add students manually or import an Excel file to start building the attendance records.'
-            : 'Archived students will appear here when records are moved out of the active list.'
+            ? 'Try another search or add a student.'
+            : 'Archived student records will appear here.'
         }}
       </p>
 
@@ -111,24 +125,9 @@
         class="empty-btn"
         (click)="goToAddStudent()"
       >
-        Add Student
+        <i class="pi pi-plus"></i>
+        <span>Add Student</span>
       </button>
-    </div>
-
-    <div
-      class="empty-state"
-      *ngIf="!isLoading && visibleStudents.length > 0 && filteredVisibleStudents.length === 0"
-    >
-      <div class="empty-icon">🔎</div>
-
-      <h3>No matching student found</h3>
-
-      <p>
-        No student record matches "<strong>{{ searchTerm }}</strong
-        >". Try searching by student ID, name, program, section, email, or status.
-      </p>
-
-      <button type="button" class="empty-btn" (click)="clearSearch()">Clear Search</button>
     </div>
 
     <div class="table-wrapper" *ngIf="!isLoading && filteredVisibleStudents.length > 0">
@@ -137,9 +136,9 @@
           <tr>
             <th>#</th>
             <th>Student ID</th>
-            <th>Full Name</th>
+            <th>Student</th>
             <th>Program</th>
-            <th>Year Level</th>
+            <th>Year</th>
             <th>Section</th>
             <th>Email</th>
             <th>Status</th>
@@ -149,7 +148,7 @@
 
         <tbody>
           <tr *ngFor="let student of filteredVisibleStudents; let i = index">
-            <td>{{ i + 1 }}</td>
+            <td class="row-number">{{ i + 1 }}</td>
 
             <td>
               <span class="student-id">{{ student.studentId }}</span>
@@ -160,13 +159,18 @@
                 <div class="avatar">
                   {{ student.fullName.charAt(0) || '?' }}
                 </div>
-                <span>{{ student.fullName }}</span>
+
+                <div>
+                  <strong>{{ student.fullName }}</strong>
+                </div>
               </div>
             </td>
 
             <td>{{ student.program }}</td>
             <td>{{ student.yearLevel }}</td>
-            <td>{{ student.section || 'Not set' }}</td>
+            <td>
+              <span class="section-pill">{{ student.section || 'Not set' }}</span>
+            </td>
             <td>{{ student.email || 'No email' }}</td>
 
             <td>
@@ -177,32 +181,53 @@
                 [disabled]="activeTab === 'archive'"
                 (click)="toggleStudentStatus(student)"
               >
-                {{ student.status || 'active' }}
+                <i [class]="student.status === 'inactive' ? 'pi pi-ban' : 'pi pi-check-circle'"></i>
+                <span>{{ student.status || 'active' }}</span>
               </button>
             </td>
 
             <td>
               <div class="action-buttons" *ngIf="activeTab === 'active'">
-                <button type="button" class="edit-btn" (click)="openEditModal(student)">
-                  Edit
-                </button>
-
-                <button type="button" class="archive-btn" (click)="archiveStudent(student)">
-                  Archive
-                </button>
-              </div>
-
-              <div class="action-buttons" *ngIf="activeTab === 'archive'">
-                <button type="button" class="restore-btn" (click)="restoreStudent(student)">
-                  Restore
+                <button
+                  type="button"
+                  class="icon-action edit-btn"
+                  (click)="openEditModal(student)"
+                  aria-label="Edit student"
+                  title="Edit"
+                >
+                  <i class="pi pi-pencil"></i>
                 </button>
 
                 <button
                   type="button"
-                  class="delete-btn"
-                  (click)="deleteStudentPermanently(student)"
+                  class="icon-action archive-btn"
+                  (click)="archiveStudent(student)"
+                  aria-label="Archive student"
+                  title="Archive"
                 >
-                  Delete
+                  <i class="pi pi-folder"></i>
+                </button>
+              </div>
+
+              <div class="action-buttons" *ngIf="activeTab === 'archive'">
+                <button
+                  type="button"
+                  class="icon-action restore-btn"
+                  (click)="restoreStudent(student)"
+                  aria-label="Restore student"
+                  title="Restore"
+                >
+                  <i class="pi pi-refresh"></i>
+                </button>
+
+                <button
+                  type="button"
+                  class="icon-action delete-btn"
+                  (click)="deleteStudentPermanently(student)"
+                  aria-label="Delete permanently"
+                  title="Delete permanently"
+                >
+                  <i class="pi pi-trash"></i>
                 </button>
               </div>
             </td>
@@ -211,17 +236,19 @@
       </table>
     </div>
   </div>
-</div>
+</section>
 
 <div class="modal-backdrop" *ngIf="showEditModal">
   <div class="modal-card">
     <div class="modal-header">
       <div>
-        <h3>Edit Student</h3>
-        <p>Update this student’s information.</p>
+        <span class="eyebrow">Student</span>
+        <h3>Edit Record</h3>
       </div>
 
-      <button type="button" class="close-btn" (click)="closeEditModal()">×</button>
+      <button type="button" class="close-btn" (click)="closeEditModal()" aria-label="Close modal">
+        <i class="pi pi-times"></i>
+      </button>
     </div>
 
     <form (ngSubmit)="saveStudentChanges()">
@@ -299,7 +326,8 @@
         <button type="button" class="cancel-btn" (click)="closeEditModal()">Cancel</button>
 
         <button type="submit" class="save-btn" [disabled]="isSaving">
-          {{ isSaving ? 'Saving...' : 'Save Changes' }}
+          <i class="pi pi-save"></i>
+          <span>{{ isSaving ? 'Saving' : 'Save Changes' }}</span>
         </button>
       </div>
     </form>
@@ -310,34 +338,36 @@
   <div class="modal-card import-modal">
     <div class="modal-header">
       <div>
-        <h3>Import Students from Excel</h3>
-        <p>{{ importFileName || 'Review the imported student records before saving.' }}</p>
+        <span class="eyebrow">Excel Import</span>
+        <h3>Review Students</h3>
+        <p>{{ importFileName || 'Imported file' }}</p>
       </div>
 
-      <button type="button" class="close-btn" (click)="closeImportModal()">×</button>
+      <button type="button" class="close-btn" (click)="closeImportModal()" aria-label="Close modal">
+        <i class="pi pi-times"></i>
+      </button>
     </div>
 
     <div class="import-summary">
-      <div>
-        <span>Valid Records</span>
+      <div class="import-stat success">
+        <span>Valid</span>
         <strong>{{ validImportCount }}</strong>
       </div>
 
-      <div>
-        <span>Needs Review</span>
+      <div class="import-stat warning">
+        <span>Review</span>
         <strong>{{ invalidImportCount }}</strong>
       </div>
 
-      <div>
-        <span>Total Rows</span>
+      <div class="import-stat neutral">
+        <span>Total</span>
         <strong>{{ importPreview.length }}</strong>
       </div>
     </div>
 
-    <div class="format-note">
-      Required columns:
-      <strong>Student ID, Full Name, Program, Year Level, Section</strong>. Optional column:
-      <strong>Email</strong>.
+    <div class="format-chip full">
+      <i class="pi pi-info-circle"></i>
+      <span>Required: Student ID, Full Name, Program, Year Level, Section. Optional: Email.</span>
     </div>
 
     <div class="table-wrapper import-preview-table" *ngIf="importPreview.length > 0">
@@ -348,7 +378,7 @@
             <th>Student ID</th>
             <th>Full Name</th>
             <th>Program</th>
-            <th>Year Level</th>
+            <th>Year</th>
             <th>Section</th>
             <th>Email</th>
             <th>Validation</th>
@@ -365,7 +395,11 @@
             <td>{{ student.section || '—' }}</td>
             <td>{{ student.email || '—' }}</td>
             <td>
-              <span class="valid-badge" *ngIf="student.isValid">Ready</span>
+              <span class="valid-badge" *ngIf="student.isValid">
+                <i class="pi pi-check-circle"></i>
+                Ready
+              </span>
+
               <span class="error-text" *ngIf="!student.isValid">
                 {{ student.errors.join(', ') }}
               </span>
@@ -384,7 +418,8 @@
         [disabled]="isImporting || validImportCount === 0"
         (click)="confirmImport()"
       >
-        {{ isImporting ? 'Importing...' : 'Confirm Import' }}
+        <i class="pi pi-check"></i>
+        <span>{{ isImporting ? 'Importing' : 'Confirm Import' }}</span>
       </button>
     </div>
   </div>

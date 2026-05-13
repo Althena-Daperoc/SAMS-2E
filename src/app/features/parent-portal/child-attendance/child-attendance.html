@@ -1,40 +1,77 @@
 <div class="child-attendance-page">
-  <section class="page-hero">
-    <div class="hero-content">
+  <section class="attendance-hero">
+    <div>
       <span class="eyebrow">Child Attendance</span>
       <h1>{{ childInfo.fullName }}</h1>
-      <p>
-        View your child’s attendance history, class status, attendance method, and teacher remarks.
-      </p>
+
+      <div class="hero-tags">
+        <span>
+          <i class="pi pi-id-card"></i>
+          {{ childInfo.studentId }}
+        </span>
+
+        <span>
+          <i class="pi pi-graduation-cap"></i>
+          {{ childInfo.program }}
+        </span>
+
+        <span>
+          <i class="pi pi-users"></i>
+          {{ childInfo.section }}
+        </span>
+      </div>
     </div>
 
-    <div class="rate-card">
-      <strong>{{ attendanceSummary.attendanceRate }}%</strong>
-      <span>Attendance Rate</span>
-      <small>{{ attendanceSummary.total }} total record(s)</small>
+    <div
+      class="rate-card"
+      [ngClass]="
+        attendanceSummary.attendanceRate >= 85
+          ? 'good'
+          : attendanceSummary.attendanceRate >= 70
+            ? 'warning'
+            : 'danger'
+      "
+    >
+      <div class="rate-icon">
+        <i
+          [class]="
+            attendanceSummary.attendanceRate >= 85
+              ? 'pi pi-check-circle'
+              : attendanceSummary.attendanceRate >= 70
+                ? 'pi pi-exclamation-triangle'
+                : 'pi pi-times-circle'
+          "
+        ></i>
+      </div>
+
+      <div>
+        <span>Rate</span>
+        <strong>{{ attendanceSummary.attendanceRate }}%</strong>
+        <small>{{ attendanceSummary.total }} record(s)</small>
+      </div>
     </div>
   </section>
 
   <section class="loading-card" *ngIf="isLoading">
     <div class="loader"></div>
-    <div>
-      <h2>Loading Child Attendance</h2>
-      <p>Please wait while the linked student records are being loaded.</p>
-    </div>
+    <strong>Loading child attendance</strong>
   </section>
 
   <section class="empty-card" *ngIf="!isLoading && linkedStudents.length === 0">
-    <div class="empty-icon">👨‍👩‍👧</div>
-    <h2>No linked student found</h2>
-    <p>Please contact the administrator to link your child to this parent account.</p>
+    <div class="empty-icon">
+      <i class="pi pi-users"></i>
+    </div>
+
+    <strong>No linked child</strong>
+    <span>Contact the administrator to connect a student record.</span>
   </section>
 
   <ng-container *ngIf="!isLoading && linkedStudents.length > 0">
-    <section class="selector-card" *ngIf="linkedStudents.length > 1">
-      <div>
-        <span class="eyebrow">Student Selection</span>
-        <h2>Select Child</h2>
-      </div>
+    <section class="child-selector" *ngIf="linkedStudents.length > 1">
+      <label for="studentSelect">
+        <i class="pi pi-user"></i>
+        Child
+      </label>
 
       <select
         id="studentSelect"
@@ -54,114 +91,196 @@
       </div>
 
       <div class="profile-info">
-        <span class="eyebrow">Student Profile</span>
+        <span class="eyebrow">Student</span>
         <h2>{{ childInfo.fullName }}</h2>
-        <p>{{ childInfo.studentId }} • {{ childInfo.program }}</p>
-        <span>{{ childInfo.yearLevel }} — {{ childInfo.section }}</span>
+
+        <div class="profile-tags">
+          <span>
+            <i class="pi pi-id-card"></i>
+            {{ childInfo.studentId }}
+          </span>
+
+          <span>
+            <i class="pi pi-graduation-cap"></i>
+            {{ childInfo.program }}
+          </span>
+
+          <span>
+            <i class="pi pi-calendar"></i>
+            {{ childInfo.yearLevel }}
+          </span>
+
+          <span>
+            <i class="pi pi-users"></i>
+            {{ childInfo.section }}
+          </span>
+        </div>
       </div>
     </section>
 
     <section class="summary-grid">
       <article class="summary-card present">
-        <div class="summary-icon">✓</div>
+        <i class="pi pi-check-circle"></i>
         <span>Present</span>
         <strong>{{ attendanceSummary.present }}</strong>
-        <p>On-time attendance</p>
       </article>
 
       <article class="summary-card late">
-        <div class="summary-icon">⏱</div>
+        <i class="pi pi-clock"></i>
         <span>Late</span>
         <strong>{{ attendanceSummary.late }}</strong>
-        <p>Late attendance</p>
       </article>
 
       <article class="summary-card absent">
-        <div class="summary-icon">!</div>
+        <i class="pi pi-times-circle"></i>
         <span>Absent</span>
         <strong>{{ attendanceSummary.absent }}</strong>
-        <p>Missed classes</p>
       </article>
 
       <article class="summary-card excused">
-        <div class="summary-icon">i</div>
+        <i class="pi pi-info-circle"></i>
         <span>Excused</span>
         <strong>{{ attendanceSummary.excused }}</strong>
-        <p>Approved absences</p>
       </article>
     </section>
 
-    <section class="table-card">
-      <div class="table-header">
-        <div>
-          <span class="eyebrow">Detailed Records</span>
-          <h2>Attendance History</h2>
-          <p>Recent attendance records of the selected linked student.</p>
+    <section class="filter-panel">
+      <div class="search-box">
+        <label for="attendanceSearch">
+          <i class="pi pi-search"></i>
+          Search
+        </label>
+
+        <div class="search-input">
+          <i class="pi pi-search"></i>
+          <input
+            id="attendanceSearch"
+            type="text"
+            name="searchTerm"
+            placeholder="Subject, teacher, method..."
+            [(ngModel)]="searchTerm"
+            autocomplete="off"
+          />
+
+          <button
+            *ngIf="searchTerm"
+            type="button"
+            class="clear-search"
+            (click)="searchTerm = ''"
+            aria-label="Clear search"
+          >
+            <i class="pi pi-times"></i>
+          </button>
         </div>
       </div>
 
-      <div class="filter-bar">
-        <input
-          type="text"
-          name="searchTerm"
-          placeholder="Search subject, teacher, method, or remarks..."
-          [(ngModel)]="searchTerm"
-        />
+      <div class="filter-box">
+        <label for="statusFilter">
+          <i class="pi pi-filter"></i>
+          Status
+        </label>
 
-        <select name="statusFilter" [(ngModel)]="statusFilter">
-          <option value="all">All Status</option>
+        <select id="statusFilter" name="statusFilter" [(ngModel)]="statusFilter">
+          <option value="all">All</option>
           <option value="present">Present</option>
           <option value="late">Late</option>
           <option value="absent">Absent</option>
           <option value="excused">Excused</option>
         </select>
+      </div>
 
-        <button type="button" (click)="clearFilters()">Clear</button>
+      <button
+        type="button"
+        class="reset-btn"
+        [disabled]="!searchTerm && statusFilter === 'all'"
+        (click)="clearFilters()"
+      >
+        <i class="pi pi-filter-slash"></i>
+        <span>Reset</span>
+      </button>
+    </section>
+
+    <section class="records-panel">
+      <div class="panel-header">
+        <div>
+          <span class="eyebrow">History</span>
+          <h2>Attendance Records</h2>
+        </div>
+
+        <span class="count-pill">{{ filteredAttendanceHistory.length }}</span>
+      </div>
+
+      <div class="loading-state" *ngIf="isAttendanceLoading">
+        <div class="loader"></div>
+        <strong>Loading records</strong>
       </div>
 
       <div
-        class="empty-table"
+        class="empty-state"
         *ngIf="!isAttendanceLoading && filteredAttendanceHistory.length === 0"
       >
-        <h3>No attendance records found</h3>
-        <p>
-          Attendance records will appear here once the student has submitted or received attendance
-          logs.
-        </p>
+        <i class="pi pi-inbox"></i>
+        <strong>No records found</strong>
+        <span>Attendance records will appear here once available.</span>
       </div>
 
-      <div class="table-wrapper" *ngIf="filteredAttendanceHistory.length > 0">
-        <table>
-          <thead>
-            <tr>
-              <th>Subject</th>
-              <th>Date</th>
-              <th>Time</th>
-              <th>Teacher</th>
-              <th>Status</th>
-              <th>Method</th>
-              <th>Remarks</th>
-            </tr>
-          </thead>
+      <div class="record-list" *ngIf="!isAttendanceLoading && filteredAttendanceHistory.length > 0">
+        <article class="record-card" *ngFor="let record of filteredAttendanceHistory">
+          <div class="record-sign" [ngClass]="getStatusClass(record.status)">
+            <i
+              [class]="
+                getStatusClass(record.status) === 'present'
+                  ? 'pi pi-check-circle'
+                  : getStatusClass(record.status) === 'late'
+                    ? 'pi pi-clock'
+                    : getStatusClass(record.status) === 'absent'
+                      ? 'pi pi-times-circle'
+                      : getStatusClass(record.status) === 'excused'
+                        ? 'pi pi-info-circle'
+                        : 'pi pi-minus-circle'
+              "
+            ></i>
+          </div>
 
-          <tbody>
-            <tr *ngFor="let record of filteredAttendanceHistory">
-              <td>
-                <strong>{{ getSubjectLabel(record) }}</strong>
-              </td>
-              <td>{{ formatDate(record) }}</td>
-              <td>{{ formatTime(record) }}</td>
-              <td>{{ record.facultyName || 'N/A' }}</td>
-              <td>
-                <span class="status-pill" [ngClass]="getStatusClass(record.status)">
-                  {{ formatStatus(record.status) }}
-                </span>
-              </td>
-              <td>{{ formatMethod(record.method) }}</td>
-              <td>{{ record.remarks || 'No remarks' }}</td>
-            </tr>
-          </tbody>
-        </table>
+          <div class="record-main">
+            <div class="record-title">
+              <strong>{{ getSubjectLabel(record) }}</strong>
+
+              <span class="status-pill" [ngClass]="getStatusClass(record.status)">
+                {{ formatStatus(record.status) }}
+              </span>
+            </div>
+
+            <div class="record-meta">
+              <span>
+                <i class="pi pi-calendar"></i>
+                {{ formatDate(record) }}
+              </span>
+
+              <span>
+                <i class="pi pi-clock"></i>
+                {{ formatTime(record) }}
+              </span>
+
+              <span>
+                <i class="pi pi-user"></i>
+                {{ record.facultyName || 'N/A' }}
+              </span>
+
+              <span>
+                <i class="pi pi-fingerprint"></i>
+                {{ formatMethod(record.method) }}
+              </span>
+            </div>
+
+            <div class="record-note">
+              <span>
+                <i class="pi pi-comment"></i>
+                {{ record.remarks || 'No remarks' }}
+              </span>
+            </div>
+          </div>
+        </article>
       </div>
     </section>
   </ng-container>

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -8,7 +8,6 @@ import {
   query,
   where,
   getDocs,
-  getDoc,
   runTransaction,
   onSnapshot,
 } from '@angular/fire/firestore';
@@ -20,43 +19,43 @@ import { NotificationService } from './notification.service';
   providedIn: 'root',
 })
 export class Attendance {
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(Injector);
+  private readonly notificationService = inject(NotificationService);
   private readonly collectionName = 'attendance';
-
-  constructor(
-    private firestore: Firestore,
-    private notificationService: NotificationService,
-  ) {}
 
   getAttendanceRecords(): Observable<any[]> {
     return new Observable<any[]>((observer) => {
-      const attendanceRef = collection(this.firestore, this.collectionName);
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const attendanceRef = collection(this.firestore, this.collectionName);
 
-      const unsubscribe = onSnapshot(
-        attendanceRef,
-        (snapshot) => {
-          const records = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-          }));
+        return onSnapshot(
+          attendanceRef,
+          (snapshot) => {
+            const records = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }));
 
-          records.sort((a: any, b: any) => {
-            const dateA =
-              this.parseDate(
-                a.submittedAt || a.generatedAt || a.createdAt || a.updatedAt,
-              )?.getTime() || 0;
+            records.sort((a: any, b: any) => {
+              const dateA =
+                this.parseDate(
+                  a.submittedAt || a.generatedAt || a.createdAt || a.updatedAt,
+                )?.getTime() || 0;
 
-            const dateB =
-              this.parseDate(
-                b.submittedAt || b.generatedAt || b.createdAt || b.updatedAt,
-              )?.getTime() || 0;
+              const dateB =
+                this.parseDate(
+                  b.submittedAt || b.generatedAt || b.createdAt || b.updatedAt,
+                )?.getTime() || 0;
 
-            return dateB - dateA;
-          });
+              return dateB - dateA;
+            });
 
-          observer.next(records);
-        },
-        (error) => observer.error(error),
-      );
+            observer.next(records);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
@@ -64,35 +63,44 @@ export class Attendance {
 
   getAttendanceByStudent(studentId: string): Observable<any[]> {
     return new Observable<any[]>((observer) => {
-      const attendanceRef = collection(this.firestore, this.collectionName);
-      const attendanceQuery = query(attendanceRef, where('studentId', '==', studentId));
+      const cleanStudentId = String(studentId || '').trim();
 
-      const unsubscribe = onSnapshot(
-        attendanceQuery,
-        (snapshot) => {
-          const records = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-          }));
+      if (!cleanStudentId) {
+        observer.next([]);
+        return () => {};
+      }
 
-          records.sort((a: any, b: any) => {
-            const dateA =
-              this.parseDate(
-                a.submittedAt || a.generatedAt || a.createdAt || a.updatedAt,
-              )?.getTime() || 0;
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const attendanceRef = collection(this.firestore, this.collectionName);
+        const attendanceQuery = query(attendanceRef, where('studentId', '==', cleanStudentId));
 
-            const dateB =
-              this.parseDate(
-                b.submittedAt || b.generatedAt || b.createdAt || b.updatedAt,
-              )?.getTime() || 0;
+        return onSnapshot(
+          attendanceQuery,
+          (snapshot) => {
+            const records = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }));
 
-            return dateB - dateA;
-          });
+            records.sort((a: any, b: any) => {
+              const dateA =
+                this.parseDate(
+                  a.submittedAt || a.generatedAt || a.createdAt || a.updatedAt,
+                )?.getTime() || 0;
 
-          observer.next(records);
-        },
-        (error) => observer.error(error),
-      );
+              const dateB =
+                this.parseDate(
+                  b.submittedAt || b.generatedAt || b.createdAt || b.updatedAt,
+                )?.getTime() || 0;
+
+              return dateB - dateA;
+            });
+
+            observer.next(records);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
@@ -100,35 +108,47 @@ export class Attendance {
 
   getAttendanceByStudentDocId(studentDocId: string): Observable<any[]> {
     return new Observable<any[]>((observer) => {
-      const attendanceRef = collection(this.firestore, this.collectionName);
-      const attendanceQuery = query(attendanceRef, where('studentDocId', '==', studentDocId));
+      const cleanStudentDocId = String(studentDocId || '').trim();
 
-      const unsubscribe = onSnapshot(
-        attendanceQuery,
-        (snapshot) => {
-          const records = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-          }));
+      if (!cleanStudentDocId) {
+        observer.next([]);
+        return () => {};
+      }
 
-          records.sort((a: any, b: any) => {
-            const dateA =
-              this.parseDate(
-                a.submittedAt || a.generatedAt || a.createdAt || a.updatedAt,
-              )?.getTime() || 0;
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const attendanceRef = collection(this.firestore, this.collectionName);
+        const attendanceQuery = query(
+          attendanceRef,
+          where('studentDocId', '==', cleanStudentDocId),
+        );
 
-            const dateB =
-              this.parseDate(
-                b.submittedAt || b.generatedAt || b.createdAt || b.updatedAt,
-              )?.getTime() || 0;
+        return onSnapshot(
+          attendanceQuery,
+          (snapshot) => {
+            const records = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }));
 
-            return dateB - dateA;
-          });
+            records.sort((a: any, b: any) => {
+              const dateA =
+                this.parseDate(
+                  a.submittedAt || a.generatedAt || a.createdAt || a.updatedAt,
+                )?.getTime() || 0;
 
-          observer.next(records);
-        },
-        (error) => observer.error(error),
-      );
+              const dateB =
+                this.parseDate(
+                  b.submittedAt || b.generatedAt || b.createdAt || b.updatedAt,
+                )?.getTime() || 0;
+
+              return dateB - dateA;
+            });
+
+            observer.next(records);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
@@ -138,24 +158,29 @@ export class Attendance {
     if (!sessionId || !studentId) return false;
 
     const safeDocId = this.createAttendanceRecordId(sessionId, studentId);
-    const deterministicDocRef = doc(this.firestore, `${this.collectionName}/${safeDocId}`);
 
-    const attendanceRef = collection(this.firestore, this.collectionName);
-    const legacyDuplicateQuery = query(
-      attendanceRef,
-      where('sessionId', '==', sessionId),
-      where('studentId', '==', studentId),
-    );
+    const legacyDuplicateSnapshot = await runInInjectionContext(this.injector, () => {
+      const attendanceRef = collection(this.firestore, this.collectionName);
+      const legacyDuplicateQuery = query(
+        attendanceRef,
+        where('sessionId', '==', sessionId),
+        where('studentId', '==', studentId),
+      );
 
-    const legacySnapshot = await getDocs(legacyDuplicateQuery);
+      return getDocs(legacyDuplicateQuery);
+    });
 
-    if (!legacySnapshot.empty) return true;
+    if (!legacyDuplicateSnapshot.empty) return true;
 
     let exists = false;
 
-    await runTransaction(this.firestore, async (transaction) => {
-      const deterministicSnapshot = await transaction.get(deterministicDocRef);
-      exists = deterministicSnapshot.exists();
+    await runInInjectionContext(this.injector, () => {
+      const deterministicDocRef = doc(this.firestore, `${this.collectionName}/${safeDocId}`);
+
+      return runTransaction(this.firestore, async (transaction) => {
+        const deterministicSnapshot = await transaction.get(deterministicDocRef);
+        exists = deterministicSnapshot.exists();
+      });
     });
 
     return exists;
@@ -173,17 +198,16 @@ export class Attendance {
       attendanceData.studentId,
     );
 
-    const attendanceDocRef = doc(this.firestore, `${this.collectionName}/${safeDocId}`);
-    const sessionDocRef = doc(this.firestore, `sessions/${attendanceData.sessionId}`);
-    const attendanceRef = collection(this.firestore, this.collectionName);
+    const legacyDuplicateSnapshot = await runInInjectionContext(this.injector, () => {
+      const attendanceRef = collection(this.firestore, this.collectionName);
+      const legacyDuplicateQuery = query(
+        attendanceRef,
+        where('sessionId', '==', attendanceData.sessionId),
+        where('studentId', '==', attendanceData.studentId),
+      );
 
-    const legacyDuplicateQuery = query(
-      attendanceRef,
-      where('sessionId', '==', attendanceData.sessionId),
-      where('studentId', '==', attendanceData.studentId),
-    );
-
-    const legacyDuplicateSnapshot = await getDocs(legacyDuplicateQuery);
+      return getDocs(legacyDuplicateQuery);
+    });
 
     if (!legacyDuplicateSnapshot.empty) {
       throw new Error('Attendance already recorded for this session.');
@@ -191,58 +215,76 @@ export class Attendance {
 
     let savedAttendanceData: any = null;
 
-    await runTransaction(this.firestore, async (transaction) => {
-      const existingRecord = await transaction.get(attendanceDocRef);
-      const sessionSnapshot = await transaction.get(sessionDocRef);
+    await runInInjectionContext(this.injector, () => {
+      const attendanceDocRef = doc(this.firestore, `${this.collectionName}/${safeDocId}`);
+      const sessionDocRef = doc(this.firestore, `sessions/${attendanceData.sessionId}`);
 
-      if (existingRecord.exists()) {
-        throw new Error('Attendance already recorded for this session.');
-      }
+      return runTransaction(this.firestore, async (transaction) => {
+        const existingRecord = await transaction.get(attendanceDocRef);
+        const sessionSnapshot = await transaction.get(sessionDocRef);
 
-      if (!sessionSnapshot.exists()) {
-        throw new Error('Attendance session was not found.');
-      }
+        if (existingRecord.exists()) {
+          throw new Error('Attendance already recorded for this session.');
+        }
 
-      const sessionData = {
-        id: sessionSnapshot.id,
-        ...sessionSnapshot.data(),
-      };
+        if (!sessionSnapshot.exists()) {
+          throw new Error('Attendance session was not found.');
+        }
 
-      this.validateSessionCanAcceptAttendance(sessionData);
+        const sessionData = {
+          id: sessionSnapshot.id,
+          ...sessionSnapshot.data(),
+        };
 
-      const computedAttendance = this.applySessionStatusRules(attendanceData, sessionData, now);
+        this.validateSessionCanAcceptAttendance(sessionData);
 
-      savedAttendanceData = {
-        ...computedAttendance,
+        const computedAttendance = this.applySessionStatusRules(attendanceData, sessionData, now);
 
-        sessionId: attendanceData.sessionId,
-        studentId: attendanceData.studentId,
+        savedAttendanceData = {
+          ...computedAttendance,
+          sessionId: attendanceData.sessionId,
+          studentId: attendanceData.studentId,
+          method: computedAttendance.method || 'qr_scan',
+          status: computedAttendance.status,
+          createdAt: computedAttendance.createdAt || now,
+          updatedAt: now,
+        };
 
-        method: computedAttendance.method || 'qr_scan',
-        status: computedAttendance.status,
-
-        createdAt: computedAttendance.createdAt || now,
-        updatedAt: now,
-      };
-
-      transaction.set(attendanceDocRef, this.stripUndefined(savedAttendanceData));
+        transaction.set(attendanceDocRef, this.stripUndefined(savedAttendanceData));
+      });
     });
 
     await this.notifyTeacherAboutAttendance(savedAttendanceData || attendanceData);
   }
 
   updateAttendance(id: string, attendanceData: any): Promise<void> {
-    const attendanceDoc = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
 
-    return updateDoc(attendanceDoc, {
-      ...attendanceData,
-      updatedAt: new Date().toISOString(),
+    if (!cleanId) {
+      return Promise.resolve();
+    }
+
+    return runInInjectionContext(this.injector, () => {
+      const attendanceDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      return updateDoc(attendanceDoc, {
+        ...attendanceData,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   deleteAttendance(id: string): Promise<void> {
-    const attendanceDoc = doc(this.firestore, `${this.collectionName}/${id}`);
-    return deleteDoc(attendanceDoc);
+    const cleanId = String(id || '').trim();
+
+    if (!cleanId) {
+      return Promise.resolve();
+    }
+
+    return runInInjectionContext(this.injector, () => {
+      const attendanceDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+      return deleteDoc(attendanceDoc);
+    });
   }
 
   private validateSessionCanAcceptAttendance(sessionData: any): void {
@@ -275,14 +317,11 @@ export class Attendance {
     const incomingStatus = String(attendanceData?.status || '')
       .trim()
       .toLowerCase();
+
     const incomingMethod = String(attendanceData?.method || '')
       .trim()
       .toLowerCase();
 
-    /*
-      Preserve statuses that should not be recalculated.
-      Auto-absent, excused, and imported records should stay as explicitly given.
-    */
     if (
       incomingStatus === 'absent' ||
       incomingStatus === 'excused' ||
@@ -320,36 +359,19 @@ export class Attendance {
 
     const finalStatus = isLate ? 'late' : 'present';
 
-    console.log('[SAMS 2 Attendance Service Decision]', {
-      sessionId: sessionData?.id,
-      studentId: attendanceData?.studentId,
-      incomingStatus,
-      finalStatus,
-      submittedAt: submittedAtDate.toISOString(),
-      startTime: this.getSessionStartTime(sessionData, submittedAtDate)?.toISOString(),
-      lateStartsAt: lateStartsAt.toISOString(),
-      lateAfterMinutes,
-      lateMinutes,
-      endTime: this.getSessionEndTime(sessionData)?.toISOString(),
-    });
-
     return {
       ...attendanceData,
-
       status: finalStatus,
       lateMinutes,
       lateAfterMinutes,
       lateThresholdMinutes: lateAfterMinutes,
       lateStartsAt: lateStartsAt.toISOString(),
       submittedAt: submittedAtDate.toISOString(),
-
       sessionStartTime: this.getSessionStartTime(sessionData, submittedAtDate)?.toISOString() || '',
       sessionEndTime: this.getSessionEndTime(sessionData)?.toISOString() || '',
-
       remarks: isLate
         ? `Submitted late by ${lateMinutes} minute${lateMinutes > 1 ? 's' : ''} at ${submittedAtDate.toLocaleString()}`
         : attendanceData.remarks || `Submitted on time at ${submittedAtDate.toLocaleString()}`,
-
       attendanceDecisionSource: 'attendance_service_session_rule',
       attendanceDecisionCheckedAt: nowIso,
     };
@@ -489,11 +511,6 @@ export class Attendance {
       await this.notificationService.notifyUsersByIds([facultyId], payload);
       return;
     }
-
-    console.warn(
-      'Attendance notification used teacher role fallback because facultyId/teacherId is missing.',
-      attendanceData,
-    );
 
     await this.notificationService.notifyUsersByRole('teacher', payload);
   }

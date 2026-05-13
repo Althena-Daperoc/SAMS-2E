@@ -13,4 +13,9 @@ export interface Conversation {
   updatedAt: string;
   lastMessage?: string;
   lastMessageAt?: string;
+  lastMessageSenderId?: string;
+  lastMessageSenderName?: string;
+  unreadCounts?: Record<string, number>;
+  lastReadAtByUser?: Record<string, string>;
+  lastDeliveredAtByUser?: Record<string, string>;
 }

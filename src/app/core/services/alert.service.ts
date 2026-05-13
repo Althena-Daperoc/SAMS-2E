@@ -13,11 +13,16 @@ export class AlertService {
     cancelButton: 'sams-swal-cancel',
   };
 
+  private readonly baseToastClass = {
+    popup: 'sams-swal-toast',
+    title: 'sams-swal-toast-title',
+  };
+
   private fire(
     icon: SweetAlertIcon,
     title: string,
     text: string,
-    confirmButtonText = 'OK'
+    confirmButtonText = 'OK',
   ): Promise<SweetAlertResult> {
     return Swal.fire({
       icon,
@@ -54,7 +59,7 @@ export class AlertService {
     title: string,
     text: string,
     confirmButtonText = 'Yes',
-    cancelButtonText = 'Cancel'
+    cancelButtonText = 'Cancel',
   ): Promise<SweetAlertResult> {
     return Swal.fire({
       icon: 'question',
@@ -79,11 +84,7 @@ export class AlertService {
       showConfirmButton: false,
       timer: 2200,
       timerProgressBar: true,
-      customClass: {
-        popup: 'sams-swal-toast',
-        title: 'sams-swal-toast-title',
-      },
-      heightAuto: false,
+      customClass: this.baseToastClass,
     });
   }
 
@@ -96,11 +97,7 @@ export class AlertService {
       showConfirmButton: false,
       timer: 2500,
       timerProgressBar: true,
-      customClass: {
-        popup: 'sams-swal-toast',
-        title: 'sams-swal-toast-title',
-      },
-      heightAuto: false,
+      customClass: this.baseToastClass,
     });
   }
 

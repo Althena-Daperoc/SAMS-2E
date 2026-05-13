@@ -190,10 +190,19 @@ export class Settings implements OnInit {
       throw new Error('No active Firebase admin account found. Please log in again.');
     }
 
+    const userId = this.userData?.id || this.userData?.uid;
+
+    if (!userId) {
+      throw new Error('Admin user document ID was not found.');
+    }
+
     const credential = EmailAuthProvider.credential(firebaseUser.email, this.currentPassword);
 
     await reauthenticateWithCredential(firebaseUser, credential);
     await updatePassword(firebaseUser, this.newPassword);
+
+    await this.updateFirestorePassword(userId);
+    this.syncStoredCurrentUser();
   }
 
   private async updatePortalPassword(): Promise<void> {
@@ -217,24 +226,31 @@ export class Settings implements OnInit {
       throw new Error('Current password is incorrect.');
     }
 
+    await this.updateFirestorePassword(userId);
+    this.syncStoredCurrentUser();
+  }
+
+  private async updateFirestorePassword(userId: string): Promise<void> {
+    const now = new Date().toISOString();
+    const userRef = doc(this.firestore, `users/${userId}`);
+
     await updateDoc(userRef, {
       password: this.newPassword,
       mustChangePassword: false,
-      updatedAt: new Date().toISOString(),
+      updatedAt: now,
     });
+  }
 
-    const updatedUser = {
-      ...this.userData,
+  private syncStoredCurrentUser(): void {
+    const updatedUser = this.authService.updateStoredCurrentUser({
       password: this.newPassword,
       mustChangePassword: false,
       updatedAt: new Date().toISOString(),
-    };
+    } as Partial<User> & Record<string, any>);
 
-    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-    localStorage.setItem('loggedInUser', JSON.stringify(updatedUser));
-    localStorage.setItem('user', JSON.stringify(updatedUser));
-
-    this.currentUser = updatedUser as User;
+    if (updatedUser) {
+      this.currentUser = updatedUser;
+    }
   }
 
   private loadThemeState(): void {

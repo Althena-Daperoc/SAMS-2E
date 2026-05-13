@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, Injector, OnDestroy, OnInit, runInInjectionContext } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import Swal from 'sweetalert2';
@@ -54,6 +54,7 @@ export class AttendanceRecords implements OnInit, OnDestroy {
 
   constructor(
     private firestore: Firestore,
+    private injector: Injector,
     private authService: AuthService,
     private notificationService: NotificationService,
   ) {}
@@ -326,22 +327,27 @@ export class AttendanceRecords implements OnInit, OnDestroy {
     if (this.activeTab === 'roster' || !this.hasVisibleSelection || this.isProcessing) return;
 
     const collectionName = this.activeTab === 'requests' ? 'attendanceRequests' : 'attendance';
+    const trashCollectionName =
+      this.activeTab === 'requests' ? 'attendanceRequestsTrash' : 'attendanceTrash';
+
     const selectedIds =
       this.activeTab === 'requests'
         ? Array.from(this.selectedRequestIds)
         : Array.from(this.selectedRecordIds);
 
-    const visibleIds = new Set(this.visibleItems.map((item) => item.id).filter(Boolean));
-    const idsToDelete = selectedIds.filter((id) => visibleIds.has(id));
+    const visibleItems = this.visibleItems.filter((item) => item.id);
+    const visibleIds = new Set(visibleItems.map((item) => item.id).filter(Boolean));
+    const idsToClear = selectedIds.filter((id) => visibleIds.has(id));
+    const itemsToClear = visibleItems.filter((item) => idsToClear.includes(item.id));
 
-    if (idsToDelete.length === 0) return;
+    if (itemsToClear.length === 0) return;
 
     const result = await Swal.fire({
-      title: 'Clear selected records?',
-      text: `${idsToDelete.length} selected item(s) will be permanently removed.`,
+      title: 'Move selected to trash?',
+      text: `${itemsToClear.length} selected item(s) will be removed from active records and backed up in Firebase trash.`,
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, clear selected',
+      confirmButtonText: 'Yes, move to trash',
       cancelButtonText: 'Cancel',
       confirmButtonColor: '#dc2626',
     });
@@ -351,25 +357,26 @@ export class AttendanceRecords implements OnInit, OnDestroy {
     this.isProcessing = true;
 
     try {
-      await Promise.all(
-        idsToDelete.map((id) => deleteDoc(doc(this.firestore, `${collectionName}/${id}`))),
+      await this.backupAndRemoveItems(
+        collectionName,
+        trashCollectionName,
+        itemsToClear,
+        'clear_selected',
       );
 
       this.clearSelectionsOnly();
 
       await Swal.fire({
-        title: 'Cleared',
-        text: 'Selected records were removed.',
+        title: 'Moved to Trash',
+        text: 'Selected records were backed up and removed from the active list.',
         icon: 'success',
-        timer: 1300,
+        timer: 1500,
         showConfirmButton: false,
       });
-    } catch (error) {
-      console.error(error);
-
+    } catch {
       await Swal.fire({
         title: 'Clear Failed',
-        text: 'Unable to clear selected records.',
+        text: 'Unable to move selected records to trash.',
         icon: 'error',
         confirmButtonColor: '#4f46e5',
       });
@@ -382,18 +389,21 @@ export class AttendanceRecords implements OnInit, OnDestroy {
     if (this.activeTab === 'roster' || this.visibleItems.length === 0 || this.isProcessing) return;
 
     const collectionName = this.activeTab === 'requests' ? 'attendanceRequests' : 'attendance';
-    const idsToDelete = this.visibleItems.map((item) => item.id).filter(Boolean);
+    const trashCollectionName =
+      this.activeTab === 'requests' ? 'attendanceRequestsTrash' : 'attendanceTrash';
 
-    if (idsToDelete.length === 0) return;
+    const itemsToClear = this.visibleItems.filter((item) => item.id);
+
+    if (itemsToClear.length === 0) return;
 
     const label = this.activeTab === 'requests' ? 'attendance requests' : 'attendance records';
 
     const result = await Swal.fire({
-      title: 'Clear all visible?',
-      text: `This will permanently remove ${idsToDelete.length} visible ${label}.`,
+      title: 'Move all visible to trash?',
+      text: `This will remove ${itemsToClear.length} visible ${label} from the active list and back them up in Firebase trash.`,
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonText: 'Yes, clear all visible',
+      confirmButtonText: 'Yes, move all to trash',
       cancelButtonText: 'Cancel',
       confirmButtonColor: '#dc2626',
     });
@@ -403,25 +413,26 @@ export class AttendanceRecords implements OnInit, OnDestroy {
     this.isProcessing = true;
 
     try {
-      await Promise.all(
-        idsToDelete.map((id) => deleteDoc(doc(this.firestore, `${collectionName}/${id}`))),
+      await this.backupAndRemoveItems(
+        collectionName,
+        trashCollectionName,
+        itemsToClear,
+        'clear_all_visible',
       );
 
       this.clearSelectionsOnly();
 
       await Swal.fire({
-        title: 'Cleared',
-        text: 'Visible records were removed.',
+        title: 'Moved to Trash',
+        text: 'Visible records were backed up and removed from the active list.',
         icon: 'success',
-        timer: 1300,
+        timer: 1500,
         showConfirmButton: false,
       });
-    } catch (error) {
-      console.error(error);
-
+    } catch {
       await Swal.fire({
         title: 'Clear Failed',
-        text: 'Unable to clear records.',
+        text: 'Unable to move records to trash.',
         icon: 'error',
         confirmButtonColor: '#4f46e5',
       });
@@ -538,9 +549,7 @@ export class AttendanceRecords implements OnInit, OnDestroy {
         timer: 1400,
         showConfirmButton: false,
       });
-    } catch (error) {
-      console.error(error);
-
+    } catch {
       await Swal.fire({
         title: 'Approval Failed',
         text: 'Unable to approve this request.',
@@ -594,9 +603,7 @@ export class AttendanceRecords implements OnInit, OnDestroy {
         timer: 1400,
         showConfirmButton: false,
       });
-    } catch (error) {
-      console.error(error);
-
+    } catch {
       await Swal.fire({
         title: 'Reject Failed',
         text: 'Unable to reject request.',
@@ -655,10 +662,6 @@ export class AttendanceRecords implements OnInit, OnDestroy {
       const targetUserIds = this.getStudentNotificationUserIds(request);
 
       if (targetUserIds.length === 0) {
-        console.warn(
-          'Student approval notification skipped. No matching student user found.',
-          request,
-        );
         return;
       }
 
@@ -681,8 +684,8 @@ export class AttendanceRecords implements OnInit, OnDestroy {
         sectionCode: request.studentSection || request.sectionCode || '',
         sessionId: request.sessionId || null,
       });
-    } catch (error) {
-      console.warn('Student approval notification failed:', error);
+    } catch {
+      return;
     }
   }
 
@@ -691,10 +694,6 @@ export class AttendanceRecords implements OnInit, OnDestroy {
       const targetUserIds = this.getStudentNotificationUserIds(request);
 
       if (targetUserIds.length === 0) {
-        console.warn(
-          'Student rejection notification skipped. No matching student user found.',
-          request,
-        );
         return;
       }
 
@@ -712,8 +711,8 @@ export class AttendanceRecords implements OnInit, OnDestroy {
         sectionCode: request.studentSection || request.sectionCode || '',
         sessionId: request.sessionId || null,
       });
-    } catch (error) {
-      console.warn('Student rejection notification failed:', error);
+    } catch {
+      return;
     }
   }
 
@@ -770,31 +769,70 @@ export class AttendanceRecords implements OnInit, OnDestroy {
   }
 
   private listenToCollection(collectionName: string, callback: (data: any[]) => void): void {
-    const ref = collection(this.firestore, collectionName);
+    const unsubscribe = runInInjectionContext(this.injector, () => {
+      const ref = collection(this.firestore, collectionName);
 
-    const unsubscribe = onSnapshot(
-      ref,
-      (snapshot) => {
-        const data = snapshot.docs.map((docSnap) => ({
-          id: docSnap.id,
-          ...docSnap.data(),
-        }));
+      return onSnapshot(
+        ref,
+        (snapshot) => {
+          const data = snapshot.docs.map((docSnap) => ({
+            id: docSnap.id,
+            ...docSnap.data(),
+          }));
 
-        data.sort((a: any, b: any) => {
-          const dateA = this.parseDate(a.createdAt || a.updatedAt || a.startTime)?.getTime() || 0;
-          const dateB = this.parseDate(b.createdAt || b.updatedAt || b.startTime)?.getTime() || 0;
-          return dateB - dateA;
-        });
+          data.sort((a: any, b: any) => {
+            const dateA = this.parseDate(a.createdAt || a.updatedAt || a.startTime)?.getTime() || 0;
+            const dateB = this.parseDate(b.createdAt || b.updatedAt || b.startTime)?.getTime() || 0;
+            return dateB - dateA;
+          });
 
-        callback(data);
-      },
-      (error) => {
-        console.error(`${collectionName} listener error:`, error);
-        callback([]);
-      },
-    );
+          callback(data);
+        },
+        () => {
+          callback([]);
+        },
+      );
+    });
 
     this.unsubscribers.push(unsubscribe);
+  }
+
+  private async backupAndRemoveItems(
+    collectionName: string,
+    trashCollectionName: string,
+    items: any[],
+    action: 'clear_selected' | 'clear_all_visible',
+  ): Promise<void> {
+    const now = new Date().toISOString();
+    const clearedBy = this.currentUser?.id || this.currentUser?.username || '';
+    const clearedByName = this.currentUser?.fullName || this.currentUser?.username || 'Faculty';
+
+    await Promise.all(
+      items
+        .filter((item) => item?.id)
+        .map((item) =>
+          runInInjectionContext(this.injector, async () => {
+            const originalId = item.id;
+            const trashDoc = doc(this.firestore, `${trashCollectionName}/${originalId}`);
+            const activeDoc = doc(this.firestore, `${collectionName}/${originalId}`);
+
+            await setDoc(trashDoc, {
+              ...item,
+              originalId,
+              originalCollection: collectionName,
+              trashCollection: trashCollectionName,
+              clearedAction: action,
+              clearedAt: now,
+              clearedBy,
+              clearedByName,
+              restoreTargetPath: `${collectionName}/${originalId}`,
+              trashBackupVersion: 1,
+            });
+
+            await deleteDoc(activeDoc);
+          }),
+        ),
+    );
   }
 
   private ensureSelectedAssignment(): void {
@@ -997,8 +1035,7 @@ export class AttendanceRecords implements OnInit, OnDestroy {
         closedAt: session.closedAt || now,
         updatedAt: now,
       });
-    } catch (error) {
-      console.error('Auto-absent generation failed:', error);
+    } catch {
       this.autoFinalizingSessionIds.delete(session.id);
     }
   }
@@ -1087,11 +1124,6 @@ export class AttendanceRecords implements OnInit, OnDestroy {
       const facultyUserIds = this.getFacultyNotificationUserIds(session, assignment);
 
       if (facultyUserIds.length === 0) {
-        console.warn('3 consecutive absences notification skipped. No faculty user found.', {
-          session,
-          assignment,
-          student,
-        });
         return;
       }
 
@@ -1125,8 +1157,8 @@ export class AttendanceRecords implements OnInit, OnDestroy {
           updatedAt: new Date().toISOString(),
         });
       }
-    } catch (error) {
-      console.warn('3 consecutive absences notification failed:', error);
+    } catch {
+      return;
     }
   }
 
@@ -1434,15 +1466,18 @@ export class AttendanceRecords implements OnInit, OnDestroy {
   }
 
   private async checkExistingAttendance(request: any): Promise<boolean> {
-    const recordsRef = collection(this.firestore, 'attendance');
+    const snapshot = await runInInjectionContext(this.injector, () => {
+      const recordsRef = collection(this.firestore, 'attendance');
 
-    const q = query(
-      recordsRef,
-      where('sessionId', '==', request.sessionId || ''),
-      where('studentId', '==', request.studentId || ''),
-    );
+      const q = query(
+        recordsRef,
+        where('sessionId', '==', request.sessionId || ''),
+        where('studentId', '==', request.studentId || ''),
+      );
 
-    const snapshot = await getDocs(q);
+      return getDocs(q);
+    });
+
     return !snapshot.empty;
   }
 

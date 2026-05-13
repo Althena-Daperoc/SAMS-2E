@@ -9,6 +9,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+import Swal from 'sweetalert2';
 
 import { AuthService } from '../../core/services/auth.service';
 import { MessagesService } from '../../core/services/message.service';
@@ -34,6 +35,7 @@ type ChatUser = User & {
 })
 export class Messages implements OnInit, OnDestroy, AfterViewChecked {
   @ViewChild('messageScroll') messageScroll?: ElementRef<HTMLDivElement>;
+  @ViewChild('composerTextarea') composerTextarea?: ElementRef<HTMLTextAreaElement>;
 
   currentUser: ChatUser | null = null;
 
@@ -52,9 +54,13 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
   isLoading = true;
   isSending = false;
   showNewChatPanel = false;
+  showEmojiPanel = false;
+  isChatOpenOnMobile = false;
   chatMode: 'private' | 'group' = 'private';
 
   replyToMessage: ChatMessage | null = null;
+
+  readonly quickEmojis = ['👍', '❤️', '😂', '😮', '😢', '🙏', '👏', '🔥', '✅', '👀', '😊', '🎉'];
 
   private shouldScrollToBottom = false;
   private subscriptions: Subscription[] = [];
@@ -93,8 +99,12 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
     return this.conversations.filter((conversation) =>
       [
         this.getConversationTitle(conversation),
+        this.getConversationPreview(conversation),
         conversation.lastMessage,
+        conversation.lastMessageSenderName,
         conversation.participantNames?.join(' '),
+        conversation.participantRoles?.join(' '),
+        conversation.sectionCode,
       ]
         .filter(Boolean)
         .join(' ')
@@ -155,13 +165,16 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
       return 'Choose an existing chat or start a new one.';
     }
 
-    const count = this.selectedConversation.participantIds?.length || 0;
-
     if (this.selectedConversation.type === 'group') {
-      return `${count} member(s)`;
+      return this.getConversationMembersLabel(this.selectedConversation);
     }
 
-    return 'Private conversation';
+    const otherUser = this.getOtherParticipantUser(this.selectedConversation);
+    const roleLabel = this.getRoleLabel(
+      otherUser?.role || this.getOtherParticipantRole(this.selectedConversation),
+    );
+
+    return `${roleLabel} • Private conversation`;
   }
 
   get activeOtherParticipant(): string {
@@ -174,13 +187,18 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
     return this.selectedConversation.participantNames?.[index] || '';
   }
 
+  get hasAllowedContacts(): boolean {
+    return this.allowedContacts.length > 0;
+  }
+
   loadUsers(): void {
     const sub = this.messagesService.getUsers().subscribe({
       next: (users) => {
-        this.users = users as ChatUser[];
+        this.users = (users || []) as ChatUser[];
       },
       error: () => {
         this.users = [];
+        this.showError('Unable to load contacts. Please refresh the page and try again.');
       },
     });
 
@@ -199,23 +217,40 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
         this.isLoading = false;
 
         if (!this.selectedConversation && this.conversations.length > 0) {
-          this.selectConversation(this.conversations[0]);
+          this.selectConversation(this.conversations[0], false);
+          return;
+        }
+
+        if (this.selectedConversation?.id) {
+          const refreshedConversation = this.conversations.find(
+            (conversation) => conversation.id === this.selectedConversation?.id,
+          );
+
+          if (refreshedConversation) {
+            this.selectedConversation = refreshedConversation;
+          }
         }
       },
       error: () => {
         this.conversations = [];
         this.isLoading = false;
+        this.showError('Unable to load conversations. Please refresh the page and try again.');
       },
     });
 
     this.subscriptions.push(sub);
   }
 
-  selectConversation(conversation: Conversation): void {
+  selectConversation(conversation: Conversation, openOnMobile = true): void {
     this.selectedConversation = conversation;
     this.replyToMessage = null;
+    this.showEmojiPanel = false;
     this.messages = [];
     this.shouldScrollToBottom = true;
+
+    if (openOnMobile) {
+      this.isChatOpenOnMobile = true;
+    }
 
     this.messagesSubscription?.unsubscribe();
 
@@ -235,6 +270,7 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
       },
       error: () => {
         this.messages = [];
+        this.showError('Unable to load messages for this conversation.');
       },
     });
   }
@@ -263,6 +299,7 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
       }
 
       this.resetNewChatPanel();
+      this.showToast('Conversation is ready.');
 
       const createdConversation = this.conversations.find((item) => item.id === conversationId);
 
@@ -270,7 +307,9 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
         this.selectConversation(createdConversation);
       }
     } catch (error) {
-      console.error('Failed to start conversation:', error);
+      this.showError(
+        'Failed to start conversation. Please check the selected contact and try again.',
+      );
     }
   }
 
@@ -291,9 +330,11 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
 
       this.messageText = '';
       this.replyToMessage = null;
+      this.showEmojiPanel = false;
+      this.resetComposerHeight();
       this.shouldScrollToBottom = true;
     } catch (error) {
-      console.error('Failed to send message:', error);
+      this.showError('Failed to send message. Please check your connection and try again.');
     } finally {
       this.isSending = false;
     }
@@ -306,9 +347,20 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
     }
   }
 
+  onComposerInput(event: Event): void {
+    const textarea = event.target as HTMLTextAreaElement | null;
+
+    if (!textarea) return;
+
+    textarea.style.height = 'auto';
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 132)}px`;
+  }
+
   setReply(message: ChatMessage): void {
     if (message.isDeleted) return;
     this.replyToMessage = message;
+    this.showEmojiPanel = false;
+    setTimeout(() => this.composerTextarea?.nativeElement.focus(), 0);
   }
 
   cancelReply(): void {
@@ -319,15 +371,45 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
     if (!this.selectedConversation?.id || !message.id) return;
     if (!this.isMine(message)) return;
 
-    await this.messagesService.unsendMessage(this.selectedConversation.id, message.id);
+    const result = await Swal.fire({
+      title: 'Unsend message?',
+      text: 'This message will be replaced with an unsent-message notice.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes, unsend',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true,
+      customClass: {
+        popup: 'sams-swal-popup',
+        title: 'sams-swal-title',
+        htmlContainer: 'sams-swal-text',
+        confirmButton: 'sams-swal-confirm',
+        cancelButton: 'sams-swal-cancel',
+      },
+      buttonsStyling: false,
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      await this.messagesService.unsendMessage(this.selectedConversation.id, message.id);
+      this.showToast('Message unsent.');
+    } catch (error) {
+      this.showError('Failed to unsend message. Please try again.');
+    }
   }
 
   toggleNewChatPanel(): void {
     this.showNewChatPanel = !this.showNewChatPanel;
+    this.showEmojiPanel = false;
 
     if (!this.showNewChatPanel) {
       this.resetNewChatPanel();
     }
+  }
+
+  closeNewChatPanel(): void {
+    this.resetNewChatPanel();
   }
 
   setChatMode(mode: 'private' | 'group'): void {
@@ -371,15 +453,92 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
   }
 
   getConversationInitial(conversation: Conversation): string {
-    return this.getConversationTitle(conversation).trim().charAt(0).toUpperCase() || 'C';
+    return this.getInitials(this.getConversationTitle(conversation));
+  }
+
+  getConversationPreview(conversation: Conversation): string {
+    const lastMessage = conversation.lastMessage?.trim();
+
+    if (lastMessage) {
+      if (conversation.lastMessageSenderId === this.currentUser?.id) {
+        return `You: ${lastMessage}`;
+      }
+
+      return lastMessage;
+    }
+
+    return conversation.type === 'group' ? 'Group conversation started' : 'Private chat started';
+  }
+
+  getUnreadCount(conversation: Conversation): number {
+    if (!this.currentUser?.id) return 0;
+
+    const count = conversation.unreadCounts?.[this.currentUser.id];
+
+    if (typeof count !== 'number') return 0;
+
+    return Math.max(0, count);
+  }
+
+  hasUnread(conversation: Conversation): boolean {
+    return this.getUnreadCount(conversation) > 0;
+  }
+
+  getUnreadBadgeLabel(conversation: Conversation): string {
+    const count = this.getUnreadCount(conversation);
+
+    if (count > 99) {
+      return '99+';
+    }
+
+    return String(count);
+  }
+
+  isConversationSelected(conversation: Conversation): boolean {
+    return this.selectedConversation?.id === conversation.id;
+  }
+
+  getConversationMembersLabel(conversation: Conversation): string {
+    const count = conversation.participantIds?.length || 0;
+    return `${count} ${count === 1 ? 'member' : 'members'}`;
+  }
+
+  getConversationTypeLabel(conversation: Conversation): string {
+    return conversation.type === 'group' ? 'Group chat' : 'Private chat';
+  }
+
+  getOtherParticipantUser(conversation: Conversation): ChatUser | null {
+    if (!this.currentUser) return null;
+
+    const otherId = conversation.participantIds.find((id) => id !== this.currentUser?.id);
+
+    if (!otherId) return null;
+
+    return this.users.find((user) => user.id === otherId) || null;
+  }
+
+  getOtherParticipantRole(conversation: Conversation): string {
+    if (!this.currentUser) return '';
+
+    const index = conversation.participantIds.findIndex((id) => id !== this.currentUser?.id);
+
+    return conversation.participantRoles?.[index] || '';
+  }
+
+  getConversationParticipantNames(conversation: Conversation): string {
+    if (!this.currentUser) return conversation.participantNames?.join(', ') || '';
+
+    return (conversation.participantNames || [])
+      .filter((name) => name !== this.currentUser?.fullName)
+      .join(', ');
   }
 
   getUserInitial(user?: ChatUser | null): string {
-    return user?.fullName?.trim().charAt(0).toUpperCase() || 'U';
+    return this.getInitials(user?.fullName || user?.username || 'User');
   }
 
   getMessageInitial(message: ChatMessage): string {
-    return message.senderName?.trim().charAt(0).toUpperCase() || 'U';
+    return this.getInitials(message.senderName || 'User');
   }
 
   getMessageReceiptLabel(message: ChatMessage): string {
@@ -402,15 +561,82 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
     return 'Sent';
   }
 
+  getMessageStatusText(message: ChatMessage): string {
+    const receipt = this.getMessageReceiptLabel(message);
+    const time = this.formatMessageTime(message.createdAt);
+
+    if (!receipt) return time;
+    if (!time) return receipt;
+
+    return `${time} · ${receipt}`;
+  }
+
+  shouldShowDateDivider(index: number): boolean {
+    const currentMessage = this.messages[index];
+    const previousMessage = this.messages[index - 1];
+
+    if (!currentMessage) return false;
+    if (!previousMessage) return true;
+
+    return this.toDateKey(currentMessage.createdAt) !== this.toDateKey(previousMessage.createdAt);
+  }
+
+  getMessageDateLabel(value?: string): string {
+    if (!value) return '';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    if (this.toDateKey(value) === this.toDateKey(today.toISOString())) {
+      return 'Today';
+    }
+
+    if (this.toDateKey(value) === this.toDateKey(yesterday.toISOString())) {
+      return 'Yesterday';
+    }
+
+    const options: Intl.DateTimeFormatOptions = {
+      month: 'short',
+      day: 'numeric',
+    };
+
+    if (date.getFullYear() !== today.getFullYear()) {
+      options.year = 'numeric';
+    }
+
+    return date.toLocaleDateString([], options);
+  }
+
   formatConversationTime(value?: string): string {
     if (!value) return '';
 
     const date = new Date(value);
     if (Number.isNaN(date.getTime())) return '';
 
-    return date.toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
+    const today = new Date();
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+
+    const key = this.toDateKey(value);
+
+    if (key === this.toDateKey(today.toISOString())) {
+      return date.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    }
+
+    if (key === this.toDateKey(yesterday.toISOString())) {
+      return 'Yesterday';
+    }
+
+    return date.toLocaleDateString([], {
+      month: 'short',
+      day: 'numeric',
     });
   }
 
@@ -429,7 +655,38 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
   getRoleLabel(role?: string): string {
     if (role === 'teacher') return 'Faculty';
     if (role === 'student') return 'Student';
+    if (role === 'parent') return 'Parent';
+    if (role === 'admin') return 'Admin';
     return role || 'User';
+  }
+
+  insertEmoji(emoji: string): void {
+    this.messageText = `${this.messageText}${emoji}`;
+    setTimeout(() => this.composerTextarea?.nativeElement.focus(), 0);
+  }
+
+  toggleEmojiPanel(): void {
+    this.showEmojiPanel = !this.showEmojiPanel;
+  }
+
+  closeEmojiPanel(): void {
+    this.showEmojiPanel = false;
+  }
+
+  backToConversations(): void {
+    this.isChatOpenOnMobile = false;
+  }
+
+  trackByConversationId(index: number, conversation: Conversation): string {
+    return conversation.id || `${conversation.createdAt}-${index}`;
+  }
+
+  trackByMessageId(index: number, message: ChatMessage): string {
+    return message.id || `${message.createdAt}-${index}`;
+  }
+
+  trackByUserId(index: number, user: ChatUser): string {
+    return user.id || `${user.fullName}-${index}`;
   }
 
   private canChatWith(user: ChatUser): boolean {
@@ -477,5 +734,63 @@ export class Messages implements OnInit, OnDestroy, AfterViewChecked {
     if (!element) return;
 
     element.scrollTop = element.scrollHeight;
+  }
+
+  private resetComposerHeight(): void {
+    const textarea = this.composerTextarea?.nativeElement;
+
+    if (!textarea) return;
+
+    textarea.style.height = 'auto';
+  }
+
+  private getInitials(value: string): string {
+    const words = value.trim().split(/\s+/).filter(Boolean);
+
+    if (words.length === 0) return 'U';
+    if (words.length === 1) return words[0].charAt(0).toUpperCase();
+
+    return `${words[0].charAt(0)}${words[words.length - 1].charAt(0)}`.toUpperCase();
+  }
+
+  private toDateKey(value?: string): string {
+    if (!value) return '';
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+
+    return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  }
+
+  private showToast(message: string): void {
+    Swal.fire({
+      toast: true,
+      position: 'top-end',
+      icon: 'success',
+      title: message,
+      showConfirmButton: false,
+      timer: 1800,
+      timerProgressBar: true,
+      customClass: {
+        popup: 'sams-swal-toast',
+        title: 'sams-swal-toast-title',
+      },
+    });
+  }
+
+  private showError(message: string): void {
+    Swal.fire({
+      icon: 'error',
+      title: 'Messages Error',
+      text: message,
+      confirmButtonText: 'OK',
+      customClass: {
+        popup: 'sams-swal-popup',
+        title: 'sams-swal-title',
+        htmlContainer: 'sams-swal-text',
+        confirmButton: 'sams-swal-confirm',
+      },
+      buttonsStyling: false,
+    });
   }
 }

@@ -1,116 +1,104 @@
 <div class="my-attendance-page">
-  <section class="hero-card">
+  <section class="attendance-hero">
     <div>
       <span class="eyebrow">Student Attendance</span>
       <h1>My Attendance</h1>
-      <p>Track your class attendance records and latest status.</p>
+      <p>Hi, {{ firstName }}</p>
     </div>
 
-    <div class="rate-card">
-      <span>Attendance Rate</span>
-      <strong>{{ attendanceRate }}%</strong>
-      <div class="rate-bar">
-        <div [style.width.%]="attendanceRate"></div>
+    <div
+      class="rate-card"
+      [ngClass]="attendanceRate >= 85 ? 'good' : attendanceRate >= 70 ? 'warning' : 'danger'"
+    >
+      <div class="rate-icon">
+        <i
+          [class]="
+            attendanceRate >= 85
+              ? 'pi pi-check-circle'
+              : attendanceRate >= 70
+                ? 'pi pi-exclamation-triangle'
+                : 'pi pi-times-circle'
+          "
+        ></i>
+      </div>
+
+      <div>
+        <span>Rate</span>
+        <strong>{{ attendanceRate }}%</strong>
       </div>
     </div>
   </section>
 
-  <section class="summary-grid">
-    <article class="summary-card">
+  <section class="status-grid">
+    <article class="status-card total">
+      <i class="pi pi-database"></i>
       <span>Total</span>
       <strong>{{ totalRecords }}</strong>
     </article>
 
-    <article class="summary-card present">
+    <article class="status-card present">
+      <i class="pi pi-check-circle"></i>
       <span>Present</span>
       <strong>{{ presentCount }}</strong>
     </article>
 
-    <article class="summary-card late">
+    <article class="status-card late">
+      <i class="pi pi-clock"></i>
       <span>Late</span>
       <strong>{{ lateCount }}</strong>
     </article>
 
-    <article class="summary-card absent">
+    <article class="status-card absent">
+      <i class="pi pi-times-circle"></i>
       <span>Absent</span>
       <strong>{{ absentCount }}</strong>
     </article>
 
-    <article class="summary-card excused">
+    <article class="status-card excused">
+      <i class="pi pi-info-circle"></i>
       <span>Excused</span>
       <strong>{{ excusedCount }}</strong>
     </article>
   </section>
 
-  <section class="records-card">
-    <div class="records-header">
-      <div>
-        <h2>Attendance Records</h2>
-        <p>{{ filteredRecords.length }} record(s) found</p>
-      </div>
+  <section class="filter-panel">
+    <div class="search-box">
+      <label for="attendanceSearch">
+        <i class="pi pi-search"></i>
+        Search
+      </label>
 
-      <div class="record-actions">
-        <button
-          type="button"
-          class="clear-btn"
-          [class.active]="hasActiveFilters"
-          [disabled]="!hasActiveFilters"
-          (click)="clearFilters()"
-        >
-          Clear Filters
-        </button>
-
-        <button
-          type="button"
-          class="clear-btn danger"
-          [disabled]="!hasSelectedRecords"
-          (click)="clearSelectedRecords()"
-        >
-          Clear Selected
-        </button>
+      <div class="search-input">
+        <i class="pi pi-search"></i>
+        <input
+          id="attendanceSearch"
+          type="text"
+          name="searchTerm"
+          [(ngModel)]="searchTerm"
+          placeholder="Subject, section, method..."
+          autocomplete="off"
+        />
 
         <button
+          *ngIf="searchTerm"
           type="button"
-          class="clear-btn danger"
-          [disabled]="!hasVisibleRecords"
-          (click)="clearAllRecords()"
+          class="clear-search"
+          (click)="searchTerm = ''"
+          aria-label="Clear search"
         >
-          Clear All
-        </button>
-
-        <button
-          type="button"
-          class="clear-btn restore"
-          *ngIf="hiddenRecordIds.length > 0"
-          (click)="restoreClearedRecords()"
-        >
-          Restore
+          <i class="pi pi-times"></i>
         </button>
       </div>
     </div>
 
-    <div class="filter-row">
-      <label class="select-all-box" *ngIf="!isLoading && filteredRecords.length > 0">
-        <input
-          type="checkbox"
-          [checked]="areAllVisibleRecordsSelected"
-          (change)="toggleSelectAllVisible()"
-        />
-        <span>Select all</span>
+    <div class="filter-box">
+      <label for="statusFilter">
+        <i class="pi pi-filter"></i>
+        Status
       </label>
 
-      <div class="search-box">
-        <span>⌕</span>
-        <input
-          type="text"
-          name="searchTerm"
-          [(ngModel)]="searchTerm"
-          placeholder="Search subject, section, remarks..."
-        />
-      </div>
-
-      <select name="selectedStatus" [(ngModel)]="selectedStatus">
-        <option value="all">All Status</option>
+      <select id="statusFilter" name="selectedStatus" [(ngModel)]="selectedStatus">
+        <option value="all">All</option>
         <option value="present">Present</option>
         <option value="late">Late</option>
         <option value="absent">Absent</option>
@@ -118,70 +106,95 @@
       </select>
     </div>
 
-    <div class="loading-state" *ngIf="isLoading">Loading attendance records...</div>
+    <button
+      type="button"
+      class="reset-btn"
+      [disabled]="!searchTerm && selectedStatus === 'all'"
+      (click)="clearFilters()"
+    >
+      <i class="pi pi-filter-slash"></i>
+      <span>Reset</span>
+    </button>
+  </section>
+
+  <section class="records-panel">
+    <div class="panel-header">
+      <div>
+        <span class="eyebrow">History</span>
+        <h2>Records</h2>
+      </div>
+
+      <span class="count-pill">{{ filteredRecords.length }}</span>
+    </div>
+
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="loader"></div>
+      <strong>Loading records</strong>
+    </div>
 
     <div class="empty-state" *ngIf="!isLoading && filteredRecords.length === 0">
-      <div>▦</div>
-      <h3>No records found</h3>
-      <p *ngIf="hasActiveFilters">
-        No records match your current filters. Click Clear Filters to show all records again.
-      </p>
-      <p *ngIf="!hasActiveFilters && hiddenRecordIds.length === 0">
-        Your attendance records will appear here after scanning an active session.
-      </p>
-      <p *ngIf="!hasActiveFilters && hiddenRecordIds.length > 0">
-        Your records are hidden from this view. Click Restore to show them again.
-      </p>
+      <i class="pi pi-inbox"></i>
+      <strong>No records found</strong>
+      <span>Attendance records will appear here after scanning a valid session.</span>
     </div>
 
     <div class="record-list" *ngIf="!isLoading && filteredRecords.length > 0">
-      <article
-        class="record-item"
-        *ngFor="let record of filteredRecords"
-        [class.selected]="isRecordSelected(record)"
-      >
-        <div class="record-main">
-          <label class="record-select">
-            <input
-              type="checkbox"
-              [checked]="isRecordSelected(record)"
-              (change)="toggleRecordSelection(record)"
-            />
-            <span></span>
-          </label>
-
-          <div class="record-title">
-            <h3>
-              {{ record.subjectCode || 'Subject' }}
-              <span *ngIf="record.subjectName">— {{ record.subjectName }}</span>
-            </h3>
-            <p>{{ record.sectionCode || 'No section' }}</p>
-          </div>
-
-          <span class="status-chip" [class]="getStatusClass(record.status)">
-            {{ formatStatus(record.status) }}
-          </span>
+      <article class="record-card" *ngFor="let record of filteredRecords">
+        <div class="record-sign" [ngClass]="getStatusClass(record.status)">
+          <i
+            [class]="
+              getStatusClass(record.status) === 'present'
+                ? 'pi pi-check-circle'
+                : getStatusClass(record.status) === 'late'
+                  ? 'pi pi-clock'
+                  : getStatusClass(record.status) === 'absent'
+                    ? 'pi pi-times-circle'
+                    : getStatusClass(record.status) === 'excused'
+                      ? 'pi pi-info-circle'
+                      : 'pi pi-minus-circle'
+            "
+          ></i>
         </div>
 
-        <div class="record-details">
-          <div>
-            <span>Date</span>
-            <strong>{{ formatDate(record.createdAt) }}</strong>
+        <div class="record-main">
+          <div class="record-title">
+            <strong>
+              {{ record.subjectCode || 'Subject' }}
+              <span *ngIf="record.subjectName">— {{ record.subjectName }}</span>
+            </strong>
+
+            <span class="status-chip" [ngClass]="getStatusClass(record.status)">
+              {{ formatStatus(record.status || 'N/A') }}
+            </span>
           </div>
 
-          <div>
-            <span>Time</span>
-            <strong>{{ formatTime(record.createdAt) }}</strong>
+          <div class="record-meta">
+            <span>
+              <i class="pi pi-users"></i>
+              {{ record.sectionCode || 'Section' }}
+            </span>
+
+            <span>
+              <i class="pi pi-fingerprint"></i>
+              {{ formatMethod(record.method || 'N/A') }}
+            </span>
+
+            <span>
+              <i class="pi pi-calendar"></i>
+              {{ formatDate(record.createdAt) }}
+            </span>
+
+            <span>
+              <i class="pi pi-clock"></i>
+              {{ formatTime(record.createdAt) }}
+            </span>
           </div>
 
-          <div>
-            <span>Method</span>
-            <strong>{{ formatMethod(record.method) }}</strong>
-          </div>
-
-          <div>
-            <span>Remarks</span>
-            <strong>{{ record.remarks || '—' }}</strong>
+          <div class="record-note" *ngIf="record.remarks">
+            <span>
+              <i class="pi pi-comment"></i>
+              {{ record.remarks }}
+            </span>
           </div>
         </div>
       </article>

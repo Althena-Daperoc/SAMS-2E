@@ -1,124 +1,234 @@
 <div class="student-dashboard">
-  <section class="hero-card">
-    <div>
+  <section class="student-hero">
+    <div class="hero-left">
       <span class="eyebrow">Student Portal</span>
-      <h1>Welcome back, {{ firstName }}</h1>
-      <p>Check your attendance status and scan your class session QR.</p>
+      <h1>Hi, {{ firstName }}</h1>
 
       <div class="student-tags">
-        <span>{{ studentProgram }}</span>
-        <span>{{ studentYearLevel }}</span>
-        <span>{{ studentSection }}</span>
+        <span>
+          <i class="pi pi-graduation-cap"></i>
+          {{ studentProgram }}
+        </span>
+
+        <span>
+          <i class="pi pi-calendar"></i>
+          {{ studentYearLevel }}
+        </span>
+
+        <span>
+          <i class="pi pi-users"></i>
+          {{ studentSection }}
+        </span>
       </div>
     </div>
 
-    <div class="hero-status" [class]="getStatusClass(latestRecord?.status)">
-      <span>Latest Status</span>
-      <strong>{{ latestStatusLabel }}</strong>
-      <small>{{ latestRecord ? formatDate(latestRecord.createdAt) : 'No attendance yet' }}</small>
+    <div class="latest-card" [ngClass]="getStatusClass(latestRecord?.status)">
+      <div class="latest-icon">
+        <i
+          [class]="
+            getStatusClass(latestRecord?.status) === 'present'
+              ? 'pi pi-check-circle'
+              : getStatusClass(latestRecord?.status) === 'late'
+                ? 'pi pi-clock'
+                : getStatusClass(latestRecord?.status) === 'absent'
+                  ? 'pi pi-times-circle'
+                  : getStatusClass(latestRecord?.status) === 'excused'
+                    ? 'pi pi-info-circle'
+                    : 'pi pi-minus-circle'
+          "
+        ></i>
+      </div>
+
+      <div>
+        <span>Latest</span>
+        <strong>{{ latestStatusLabel }}</strong>
+        <small>{{ latestRecord ? formatDate(latestRecord.createdAt) : 'No record yet' }}</small>
+      </div>
     </div>
   </section>
 
-  <section class="quick-actions">
-    <button type="button" class="action-card primary" (click)="goTo('/student/scan-attendance')">
-      <span>Scan</span>
-      <strong>Scan Attendance</strong>
+  <section class="action-grid">
+    <button type="button" class="action-card scan" (click)="goTo('/student/scan-attendance')">
+      <span class="action-icon">
+        <i class="pi pi-qrcode"></i>
+      </span>
+
+      <div>
+        <span>Scan</span>
+        <strong>Attendance</strong>
+      </div>
+
+      <i class="pi pi-chevron-right arrow"></i>
     </button>
 
-    <button type="button" class="action-card" (click)="goTo('/student/my-attendance')">
-      <span>Records</span>
-      <strong>My Attendance</strong>
+    <button type="button" class="action-card records" (click)="goTo('/student/my-attendance')">
+      <span class="action-icon">
+        <i class="pi pi-list-check"></i>
+      </span>
+
+      <div>
+        <span>View</span>
+        <strong>Records</strong>
+      </div>
+
+      <i class="pi pi-chevron-right arrow"></i>
     </button>
 
-    <button type="button" class="action-card" (click)="goTo('/profile')">
-      <span>Account</span>
-      <strong>Profile</strong>
+    <button type="button" class="action-card profile" (click)="goTo('/profile')">
+      <span class="action-icon">
+        <i class="pi pi-user"></i>
+      </span>
+
+      <div>
+        <span>Open</span>
+        <strong>Profile</strong>
+      </div>
+
+      <i class="pi pi-chevron-right arrow"></i>
     </button>
   </section>
 
   <section class="summary-grid">
-    <article class="summary-card">
-      <span>Attendance Rate</span>
-      <strong>{{ attendanceRate }}%</strong>
+    <article class="rate-card" [ngClass]="getStatusClass(latestRecord?.status)">
+      <div class="rate-header">
+        <span>
+          <i class="pi pi-chart-line"></i>
+          Rate
+        </span>
 
-      <div class="progress-bar">
-        <div [style.width.%]="attendanceRate"></div>
+        <strong>{{ attendanceRate }}%</strong>
+      </div>
+
+      <div class="progress-track">
+        <div class="progress-fill" [style.width.%]="attendanceRate"></div>
       </div>
     </article>
 
-    <article class="summary-card present">
+    <article class="stat-card present">
+      <i class="pi pi-check-circle"></i>
       <span>Present</span>
       <strong>{{ presentCount }}</strong>
     </article>
 
-    <article class="summary-card late">
+    <article class="stat-card late">
+      <i class="pi pi-clock"></i>
       <span>Late</span>
       <strong>{{ lateCount }}</strong>
     </article>
 
-    <article class="summary-card absent">
+    <article class="stat-card absent">
+      <i class="pi pi-times-circle"></i>
       <span>Absent</span>
       <strong>{{ absentCount }}</strong>
     </article>
   </section>
 
   <section class="content-grid">
-    <article class="recent-card">
-      <div class="section-header">
+    <article class="recent-panel">
+      <div class="panel-header">
         <div>
-          <h2>Recent Attendance</h2>
-          <p>Your latest class attendance records.</p>
+          <span class="eyebrow">Recent</span>
+          <h2>Attendance</h2>
         </div>
 
-        <button type="button" (click)="goTo('/student/my-attendance')">View All</button>
+        <button type="button" class="view-btn" (click)="goTo('/student/my-attendance')">
+          <span>View All</span>
+          <i class="pi pi-arrow-right"></i>
+        </button>
       </div>
 
-      <div class="loading-state" *ngIf="isLoading">Loading dashboard...</div>
+      <div class="loading-state" *ngIf="isLoading">
+        <div class="loader"></div>
+        <strong>Loading</strong>
+      </div>
 
       <div class="empty-state" *ngIf="!isLoading && recentRecords.length === 0">
-        <div>▦</div>
-        <h3>No attendance yet</h3>
-        <p>Your attendance records will appear after scanning a session.</p>
+        <i class="pi pi-inbox"></i>
+        <strong>No records</strong>
       </div>
 
       <div class="record-list" *ngIf="!isLoading && recentRecords.length > 0">
-        <div class="record-item" *ngFor="let record of recentRecords">
-          <div>
+        <article class="record-item" *ngFor="let record of recentRecords">
+          <div class="record-icon" [ngClass]="getStatusClass(record.status)">
+            <i
+              [class]="
+                getStatusClass(record.status) === 'present'
+                  ? 'pi pi-check-circle'
+                  : getStatusClass(record.status) === 'late'
+                    ? 'pi pi-clock'
+                    : getStatusClass(record.status) === 'absent'
+                      ? 'pi pi-times-circle'
+                      : getStatusClass(record.status) === 'excused'
+                        ? 'pi pi-info-circle'
+                        : 'pi pi-minus-circle'
+              "
+            ></i>
+          </div>
+
+          <div class="record-main">
             <strong>
               {{ record.subjectCode || 'Subject' }}
               <span *ngIf="record.subjectName">— {{ record.subjectName }}</span>
             </strong>
-            <p>{{ formatDate(record.createdAt) }} • {{ formatTime(record.createdAt) }}</p>
+
+            <small>
+              <i class="pi pi-calendar"></i>
+              {{ formatDate(record.createdAt) }}
+              <span>•</span>
+              {{ formatTime(record.createdAt) }}
+            </small>
           </div>
 
-          <span class="status-chip" [class]="getStatusClass(record.status)">
+          <span class="status-chip" [ngClass]="getStatusClass(record.status)">
             {{ formatStatus(record.status || 'N/A') }}
           </span>
-        </div>
+        </article>
       </div>
     </article>
 
-    <article class="mini-profile-card">
-      <h2>Student Info</h2>
+    <article class="profile-panel">
+      <div class="panel-header compact">
+        <div>
+          <span class="eyebrow">Identity</span>
+          <h2>Student Info</h2>
+        </div>
 
-      <div class="info-row">
-        <span>Name</span>
-        <strong>{{ student?.fullName || currentUser?.fullName || 'Student' }}</strong>
+        <span class="profile-icon">
+          <i class="pi pi-id-card"></i>
+        </span>
       </div>
 
-      <div class="info-row">
-        <span>Student ID</span>
-        <strong>{{ student?.studentId || currentUser?.username || 'Not set' }}</strong>
-      </div>
+      <div class="profile-body">
+        <div class="student-avatar">
+          {{ (student?.fullName || currentUser?.fullName || 'S').charAt(0) }}
+        </div>
 
-      <div class="info-row">
-        <span>Program</span>
-        <strong>{{ studentProgram }}</strong>
-      </div>
+        <div class="profile-name">
+          <strong>{{ student?.fullName || currentUser?.fullName || 'Student' }}</strong>
+          <span>{{ student?.studentId || currentUser?.username || 'Not set' }}</span>
+        </div>
 
-      <div class="info-row">
-        <span>Section</span>
-        <strong>{{ studentSection }}</strong>
+        <div class="info-list">
+          <div class="info-row">
+            <i class="pi pi-graduation-cap"></i>
+            <span>{{ studentProgram }}</span>
+          </div>
+
+          <div class="info-row">
+            <i class="pi pi-calendar"></i>
+            <span>{{ studentYearLevel }}</span>
+          </div>
+
+          <div class="info-row">
+            <i class="pi pi-users"></i>
+            <span>{{ studentSection }}</span>
+          </div>
+
+          <div class="info-row">
+            <i class="pi pi-database"></i>
+            <span>{{ totalRecords }} record(s)</span>
+          </div>
+        </div>
       </div>
     </article>
   </section>

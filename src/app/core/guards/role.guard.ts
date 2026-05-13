@@ -4,36 +4,18 @@ import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
 import { UserRole } from '../../models/user.model';
 
-const getDefaultRouteByRole = (role: UserRole): string => {
-  switch (role) {
-    case 'admin':
-      return '/dashboard';
-
-    case 'teacher':
-      return '/dashboard';
-
-    case 'student':
-      return '/student/dashboard';
-
-    case 'parent':
-      return '/parent/dashboard';
-
-    default:
-      return '/login';
-  }
-};
-
-export const roleGuard: CanActivateFn = (route, _state) => {
+export const roleGuard: CanActivateFn = (route) => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  const allowedRoles = route.data?.['roles'] as UserRole[] | undefined;
   const currentUser = authService.getCurrentUser();
 
   if (!currentUser) {
     router.navigate(['/login']);
     return false;
   }
+
+  const allowedRoles = route.data?.['roles'] as UserRole[] | undefined;
 
   if (!allowedRoles || allowedRoles.length === 0) {
     return true;
@@ -43,6 +25,8 @@ export const roleGuard: CanActivateFn = (route, _state) => {
     return true;
   }
 
-  router.navigate([getDefaultRouteByRole(currentUser.role)]);
+  const defaultRoute = authService.getDefaultRouteByRole(currentUser.role);
+  router.navigate([defaultRoute]);
+
   return false;
 };

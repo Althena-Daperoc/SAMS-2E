@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -18,40 +18,41 @@ import { SessionAccessService } from './session-access.service';
   providedIn: 'root',
 })
 export class Session {
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(Injector);
+  private readonly notificationService = inject(NotificationService);
+  private readonly sessionAccessService = inject(SessionAccessService);
+
   private readonly collectionName = 'sessions';
 
   private readonly defaultDurationMinutes = 30;
   private readonly defaultLateAfterMinutes = 1;
   private readonly defaultRotationSeconds = 30;
 
-  constructor(
-    private firestore: Firestore,
-    private notificationService: NotificationService,
-    private sessionAccessService: SessionAccessService,
-  ) {}
-
   getSessions(): Observable<any[]> {
     return new Observable<any[]>((observer) => {
-      const sessionsRef = collection(this.firestore, this.collectionName);
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const sessionsRef = collection(this.firestore, this.collectionName);
 
-      const unsubscribe = onSnapshot(
-        sessionsRef,
-        (snapshot) => {
-          const sessions = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-          }));
+        return onSnapshot(
+          sessionsRef,
+          (snapshot) => {
+            const sessions = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }));
 
-          sessions.sort((a: any, b: any) => {
-            const dateA = this.parseDate(a.createdAt || a.startTime)?.getTime() || 0;
-            const dateB = this.parseDate(b.createdAt || b.startTime)?.getTime() || 0;
-            return dateB - dateA;
-          });
+            sessions.sort((a: any, b: any) => {
+              const dateA = this.parseDate(a.createdAt || a.startTime)?.getTime() || 0;
+              const dateB = this.parseDate(b.createdAt || b.startTime)?.getTime() || 0;
+              return dateB - dateA;
+            });
 
-          observer.next(sessions);
-        },
-        (error) => observer.error(error),
-      );
+            observer.next(sessions);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
@@ -59,29 +60,31 @@ export class Session {
 
   getActiveSessions(): Observable<any[]> {
     return new Observable<any[]>((observer) => {
-      const sessionsRef = collection(this.firestore, this.collectionName);
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const sessionsRef = collection(this.firestore, this.collectionName);
 
-      const unsubscribe = onSnapshot(
-        sessionsRef,
-        (snapshot) => {
-          const sessions = snapshot.docs
-            .map((docSnap) => ({
-              id: docSnap.id,
-              ...docSnap.data(),
-            }))
-            .filter((session: any) => String(session.status || '').toLowerCase() === 'active')
-            .filter((session: any) => !this.isSessionExpired(session));
+        return onSnapshot(
+          sessionsRef,
+          (snapshot) => {
+            const sessions = snapshot.docs
+              .map((docSnap) => ({
+                id: docSnap.id,
+                ...docSnap.data(),
+              }))
+              .filter((session: any) => String(session.status || '').toLowerCase() === 'active')
+              .filter((session: any) => !this.isSessionExpired(session));
 
-          sessions.sort((a: any, b: any) => {
-            const dateA = this.parseDate(a.createdAt || a.startTime)?.getTime() || 0;
-            const dateB = this.parseDate(b.createdAt || b.startTime)?.getTime() || 0;
-            return dateB - dateA;
-          });
+            sessions.sort((a: any, b: any) => {
+              const dateA = this.parseDate(a.createdAt || a.startTime)?.getTime() || 0;
+              const dateB = this.parseDate(b.createdAt || b.startTime)?.getTime() || 0;
+              return dateB - dateA;
+            });
 
-          observer.next(sessions);
-        },
-        (error) => observer.error(error),
-      );
+            observer.next(sessions);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
@@ -92,7 +95,10 @@ export class Session {
 
     if (!cleanId) return null;
 
-    const sessionDoc = await getDoc(doc(this.firestore, `${this.collectionName}/${cleanId}`));
+    const sessionDoc = await runInInjectionContext(this.injector, () => {
+      const sessionRef = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+      return getDoc(sessionRef);
+    });
 
     if (!sessionDoc.exists()) return null;
 
@@ -103,13 +109,15 @@ export class Session {
   }
 
   async createSession(session: any): Promise<string> {
-    const sessionsRef = collection(this.firestore, this.collectionName);
-    const sessionDocRef = doc(sessionsRef);
+    const sessionDocRef = runInInjectionContext(this.injector, () => {
+      const sessionsRef = collection(this.firestore, this.collectionName);
+      return doc(sessionsRef);
+    });
 
     const sessionId = sessionDocRef.id;
     const normalizedSession = this.buildSessionPayload(session, sessionId);
 
-    await setDoc(sessionDocRef, normalizedSession);
+    await runInInjectionContext(this.injector, () => setDoc(sessionDocRef, normalizedSession));
 
     await this.notifyStudentsAboutNewSession(sessionId, normalizedSession);
 
@@ -117,14 +125,21 @@ export class Session {
   }
 
   updateSession(id: string, session: any): Promise<void> {
-    const sessionDoc = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
+
+    if (!cleanId) {
+      return Promise.resolve();
+    }
 
     const updatePayload = this.stripUndefined({
       ...session,
       updatedAt: new Date().toISOString(),
     });
 
-    return updateDoc(sessionDoc, updatePayload);
+    return runInInjectionContext(this.injector, () => {
+      const sessionDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+      return updateDoc(sessionDoc, updatePayload);
+    });
   }
 
   async closeSession(id: string): Promise<void> {
@@ -134,15 +149,18 @@ export class Session {
       throw new Error('Missing session ID.');
     }
 
-    const sessionDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
     const now = new Date().toISOString();
 
-    await updateDoc(sessionDoc, {
-      status: 'closed',
-      endTime: now,
-      closedAt: now,
-      closeReason: 'manual_close',
-      updatedAt: now,
+    await runInInjectionContext(this.injector, () => {
+      const sessionDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      return updateDoc(sessionDoc, {
+        status: 'closed',
+        endTime: now,
+        closedAt: now,
+        closeReason: 'manual_close',
+        updatedAt: now,
+      });
     });
   }
 
@@ -170,18 +188,30 @@ export class Session {
     const now = new Date().toISOString();
     const endTime = session.autoCloseAt || session.expiresAt || session.endTime || now;
 
-    await updateDoc(doc(this.firestore, `${this.collectionName}/${cleanId}`), {
-      status: 'closed',
-      endTime,
-      closedAt: now,
-      closeReason: 'auto_duration_expired',
-      updatedAt: now,
+    await runInInjectionContext(this.injector, () => {
+      const sessionDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      return updateDoc(sessionDoc, {
+        status: 'closed',
+        endTime,
+        closedAt: now,
+        closeReason: 'auto_duration_expired',
+        updatedAt: now,
+      });
     });
   }
 
   deleteSession(id: string): Promise<void> {
-    const sessionDoc = doc(this.firestore, `${this.collectionName}/${id}`);
-    return deleteDoc(sessionDoc);
+    const cleanId = String(id || '').trim();
+
+    if (!cleanId) {
+      return Promise.resolve();
+    }
+
+    return runInInjectionContext(this.injector, () => {
+      const sessionDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+      return deleteDoc(sessionDoc);
+    });
   }
 
   isSessionExpired(session: any): boolean {
@@ -398,7 +428,6 @@ export class Session {
     const sectionCode = session.sectionCode || session.section || '';
 
     if (!String(sectionCode).trim()) {
-      console.warn('Session notification skipped because sectionCode is missing.', session);
       return;
     }
 

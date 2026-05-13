@@ -1,44 +1,65 @@
 <div class="parent-dashboard-page">
-  <section class="hero-card">
-    <div class="hero-content">
+  <section class="parent-hero">
+    <div class="hero-left">
       <span class="eyebrow">Parent Portal</span>
       <h1>Welcome, {{ parentName }}</h1>
-      <p>
-        Monitor your child’s attendance performance, latest class status, and possible attendance
-        concerns in one simple dashboard.
-      </p>
+
+      <div class="hero-tags">
+        <span>
+          <i class="pi pi-users"></i>
+          {{ linkedStudents.length }} linked
+        </span>
+
+        <span>
+          <i class="pi pi-shield"></i>
+          Monitoring
+        </span>
+      </div>
     </div>
 
-    <div class="hero-status">
-      <span>Overall Status</span>
-      <strong [ngClass]="dashboardStatusClass">{{ dashboardStatus }}</strong>
-      <small>{{ latestSubject }} • {{ latestDate }}</small>
+    <div class="status-card" [ngClass]="dashboardStatusClass">
+      <div class="status-icon">
+        <i
+          [class]="
+            dashboardStatusClass === 'present' || dashboardStatusClass === 'good'
+              ? 'pi pi-check-circle'
+              : dashboardStatusClass === 'late' || dashboardStatusClass === 'warning'
+                ? 'pi pi-clock'
+                : dashboardStatusClass === 'absent' || dashboardStatusClass === 'danger'
+                  ? 'pi pi-times-circle'
+                  : 'pi pi-info-circle'
+          "
+        ></i>
+      </div>
+
+      <div>
+        <span>Status</span>
+        <strong>{{ dashboardStatus }}</strong>
+        <small>{{ latestSubject }} • {{ latestDate }}</small>
+      </div>
     </div>
   </section>
 
   <section class="loading-card" *ngIf="isLoading">
     <div class="loader"></div>
-    <div>
-      <h2>Loading Parent Dashboard</h2>
-      <p>Please wait while your linked student records are being prepared.</p>
-    </div>
+    <strong>Loading dashboard</strong>
   </section>
 
   <section class="empty-card" *ngIf="!isLoading && linkedStudents.length === 0">
-    <div class="empty-icon">👨‍👩‍👧</div>
-    <h2>No linked student found</h2>
-    <p>
-      This parent account is not yet linked to a student record. Please contact the administrator to
-      connect your child to this account.
-    </p>
+    <div class="empty-icon">
+      <i class="pi pi-users"></i>
+    </div>
+
+    <strong>No linked child</strong>
+    <span>Contact the administrator to connect a student record.</span>
   </section>
 
   <ng-container *ngIf="!isLoading && linkedStudents.length > 0">
-    <section class="selector-card" *ngIf="linkedStudents.length > 1">
-      <div>
-        <span class="eyebrow">Student Selection</span>
-        <h2>Select Child</h2>
-      </div>
+    <section class="child-selector" *ngIf="linkedStudents.length > 1">
+      <label for="studentSelect">
+        <i class="pi pi-user"></i>
+        Child
+      </label>
 
       <select
         id="studentSelect"
@@ -52,73 +73,90 @@
       </select>
     </section>
 
-    <section class="student-overview-card">
-      <div class="student-avatar">
+    <section class="child-card">
+      <div class="child-avatar">
         {{ studentInitial }}
       </div>
 
-      <div class="student-info">
-        <span class="eyebrow">Linked Student</span>
+      <div class="child-info">
+        <span class="eyebrow">Child</span>
         <h2>{{ selectedStudent?.fullName || 'No linked child' }}</h2>
-        <p>
-          {{ selectedStudent?.studentId || 'N/A' }} •
-          {{ formatProgram(selectedStudent?.program) }}
-        </p>
-        <span>
-          {{ selectedStudent?.yearLevel || 'N/A' }} —
-          {{ selectedStudent?.section || 'N/A' }}
-        </span>
+
+        <div class="child-tags">
+          <span>
+            <i class="pi pi-id-card"></i>
+            {{ selectedStudent?.studentId || 'N/A' }}
+          </span>
+
+          <span>
+            <i class="pi pi-graduation-cap"></i>
+            {{ formatProgram(selectedStudent?.program) }}
+          </span>
+
+          <span>
+            <i class="pi pi-calendar"></i>
+            {{ selectedStudent?.yearLevel || 'N/A' }}
+          </span>
+
+          <span>
+            <i class="pi pi-users"></i>
+            {{ selectedStudent?.section || 'N/A' }}
+          </span>
+        </div>
       </div>
 
-      <div class="attendance-rate-box">
+      <div
+        class="rate-box"
+        [ngClass]="attendanceRate >= 85 ? 'good' : attendanceRate >= 70 ? 'warning' : 'danger'"
+      >
         <strong>{{ attendanceRate }}%</strong>
-        <span>Attendance Rate</span>
+        <span>Rate</span>
       </div>
     </section>
 
     <section class="summary-grid">
       <article class="summary-card present">
-        <div class="summary-icon">✓</div>
+        <i class="pi pi-check-circle"></i>
         <span>Present</span>
         <strong>{{ presentCount }}</strong>
-        <p>Recorded present attendance</p>
       </article>
 
       <article class="summary-card late">
-        <div class="summary-icon">⏱</div>
+        <i class="pi pi-clock"></i>
         <span>Late</span>
         <strong>{{ lateCount }}</strong>
-        <p>Late attendance records</p>
       </article>
 
       <article class="summary-card absent">
-        <div class="summary-icon">!</div>
+        <i class="pi pi-times-circle"></i>
         <span>Absent</span>
         <strong>{{ absentCount }}</strong>
-        <p>Missed class records</p>
       </article>
 
       <article class="summary-card excused">
-        <div class="summary-icon">i</div>
+        <i class="pi pi-info-circle"></i>
         <span>Excused</span>
         <strong>{{ excusedCount }}</strong>
-        <p>Approved absence records</p>
       </article>
     </section>
 
-    <section class="insight-grid">
-      <article class="panel">
+    <section class="monitor-grid">
+      <article class="panel performance-panel">
         <div class="panel-header">
           <div>
-            <span class="eyebrow">Attendance Overview</span>
-            <h3>Performance Summary</h3>
+            <span class="eyebrow">Overview</span>
+            <h3>Performance</h3>
           </div>
-          <strong>{{ totalRecords }} record(s)</strong>
+
+          <span class="count-pill">{{ totalRecords }}</span>
         </div>
 
-        <div class="progress-wrapper">
-          <div class="progress-label">
-            <span>Overall Attendance</span>
+        <div class="progress-block">
+          <div class="progress-top">
+            <span>
+              <i class="pi pi-chart-line"></i>
+              Attendance
+            </span>
             <strong>{{ attendanceRate }}%</strong>
           </div>
 
@@ -127,53 +165,102 @@
           </div>
         </div>
 
-        <p class="panel-note">
-          {{ attendanceInsight }}
-        </p>
+        <div
+          class="insight-strip"
+          [ngClass]="attendanceRate >= 85 ? 'good' : attendanceRate >= 70 ? 'warning' : 'danger'"
+        >
+          <i
+            [class]="
+              attendanceRate >= 85
+                ? 'pi pi-check-circle'
+                : attendanceRate >= 70
+                  ? 'pi pi-exclamation-triangle'
+                  : 'pi pi-times-circle'
+            "
+          ></i>
+          <span>{{ attendanceInsight }}</span>
+        </div>
       </article>
 
       <article class="panel warning-panel">
         <div class="panel-header">
           <div>
-            <span class="eyebrow">Monitoring</span>
-            <h3>Attendance Warnings</h3>
+            <span class="eyebrow">Signs</span>
+            <h3>Warnings</h3>
           </div>
-          <strong>{{ totalWarnings }}</strong>
+
+          <span class="count-pill warning">{{ totalWarnings }}</span>
         </div>
 
-        <div class="warning-item danger" *ngIf="absentCount > 0">
-          <strong>Absence Alert</strong>
-          <p>{{ selectedStudent?.fullName }} has {{ absentCount }} absence record(s).</p>
-        </div>
+        <div class="warning-list">
+          <div class="warning-item danger" *ngIf="absentCount > 0">
+            <i class="pi pi-times-circle"></i>
+            <div>
+              <strong>Absence</strong>
+              <span>{{ absentCount }} record(s)</span>
+            </div>
+          </div>
 
-        <div class="warning-item caution" *ngIf="lateCount > 0">
-          <strong>Late Alert</strong>
-          <p>{{ selectedStudent?.fullName }} has {{ lateCount }} late attendance record(s).</p>
-        </div>
+          <div class="warning-item caution" *ngIf="lateCount > 0">
+            <i class="pi pi-clock"></i>
+            <div>
+              <strong>Late</strong>
+              <span>{{ lateCount }} record(s)</span>
+            </div>
+          </div>
 
-        <div class="warning-item success" *ngIf="totalWarnings === 0">
-          <strong>No Attendance Warning</strong>
-          <p>Your child currently has no attendance concern based on available records.</p>
+          <div class="warning-item success" *ngIf="totalWarnings === 0">
+            <i class="pi pi-check-circle"></i>
+            <div>
+              <strong>Clear</strong>
+              <span>No attendance warning</span>
+            </div>
+          </div>
         </div>
       </article>
     </section>
 
-    <section class="recent-card">
+    <section class="recent-panel">
       <div class="panel-header">
         <div>
-          <span class="eyebrow">Recent Activity</span>
-          <h3>Latest Attendance Records</h3>
+          <span class="eyebrow">Recent</span>
+          <h3>Attendance</h3>
         </div>
-        <span>{{ recentRecords.length }} shown</span>
+
+        <span class="count-pill">{{ recentRecords.length }}</span>
       </div>
 
-      <div class="recent-empty" *ngIf="recentRecords.length === 0">No attendance records yet.</div>
+      <div class="recent-empty" *ngIf="recentRecords.length === 0">
+        <i class="pi pi-inbox"></i>
+        <strong>No records yet</strong>
+      </div>
 
       <div class="recent-list" *ngIf="recentRecords.length > 0">
         <article class="recent-item" *ngFor="let record of recentRecords">
-          <div>
+          <div class="record-icon" [ngClass]="getStatusClass(record.status)">
+            <i
+              [class]="
+                getStatusClass(record.status) === 'present'
+                  ? 'pi pi-check-circle'
+                  : getStatusClass(record.status) === 'late'
+                    ? 'pi pi-clock'
+                    : getStatusClass(record.status) === 'absent'
+                      ? 'pi pi-times-circle'
+                      : getStatusClass(record.status) === 'excused'
+                        ? 'pi pi-info-circle'
+                        : 'pi pi-minus-circle'
+              "
+            ></i>
+          </div>
+
+          <div class="recent-main">
             <strong>{{ getSubjectLabel(record) }}</strong>
-            <span>{{ formatDate(record) }} • {{ formatTime(record) }}</span>
+            <span>
+              <i class="pi pi-calendar"></i>
+              {{ formatDate(record) }}
+              <small>•</small>
+              {{ formatTime(record) }}
+            </span>
           </div>
 
           <span class="status-pill" [ngClass]="getStatusClass(record.status)">

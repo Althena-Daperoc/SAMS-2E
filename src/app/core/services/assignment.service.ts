@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -17,47 +17,52 @@ import { Assignment } from '../../models/assignment.model';
 })
 export class AssignmentService {
   private readonly collectionName = 'assignments';
-
-  constructor(private firestore: Firestore) {}
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(Injector);
 
   getAssignments(): Observable<Assignment[]> {
-    return new Observable((observer) => {
-      const ref = collection(this.firestore, this.collectionName);
+    return new Observable<Assignment[]>((observer) => {
+      return runInInjectionContext(this.injector, () => {
+        const ref = collection(this.firestore, this.collectionName);
 
-      const unsubscribe = onSnapshot(
-        ref,
-        (snapshot) => {
-          const assignments: Assignment[] = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...(docSnap.data() as Assignment),
-          }));
+        const unsubscribe = onSnapshot(
+          ref,
+          (snapshot) => {
+            const assignments: Assignment[] = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...(docSnap.data() as Assignment),
+            }));
 
-          assignments.sort((a, b) => {
-            const syCompare = (b.schoolYear || '').localeCompare(a.schoolYear || '');
-            if (syCompare !== 0) return syCompare;
+            assignments.sort((a, b) => {
+              const syCompare = (b.schoolYear || '').localeCompare(a.schoolYear || '');
+              if (syCompare !== 0) return syCompare;
 
-            return (a.assignmentCode || '').localeCompare(b.assignmentCode || '');
-          });
+              return (a.assignmentCode || '').localeCompare(b.assignmentCode || '');
+            });
 
-          observer.next(assignments);
-        },
-        (error) => observer.error(error),
-      );
+            observer.next(assignments);
+          },
+          (error) => observer.error(error),
+        );
 
-      return () => unsubscribe();
+        return () => unsubscribe();
+      });
     });
   }
 
   async addAssignment(data: Assignment): Promise<void> {
-    const ref = collection(this.firestore, this.collectionName);
     const now = new Date().toISOString();
 
-    await addDoc(ref, {
-      ...data,
-      isArchived: false,
-      archivedAt: null,
-      createdAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const ref = collection(this.firestore, this.collectionName);
+
+      await addDoc(ref, {
+        ...data,
+        isArchived: false,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      });
     });
   }
 
@@ -68,37 +73,46 @@ export class AssignmentService {
   }
 
   async updateAssignment(id: string, data: Partial<Assignment>): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    await runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, `${this.collectionName}/${id}`);
 
-    await updateDoc(ref, {
-      ...data,
-      updatedAt: new Date().toISOString(),
+      await updateDoc(ref, {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   async archiveAssignment(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
     const now = new Date().toISOString();
 
-    await updateDoc(ref, {
-      isArchived: true,
-      archivedAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+
+      await updateDoc(ref, {
+        isArchived: true,
+        archivedAt: now,
+        updatedAt: now,
+      });
     });
   }
 
   async restoreAssignment(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    await runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, `${this.collectionName}/${id}`);
 
-    await updateDoc(ref, {
-      isArchived: false,
-      archivedAt: null,
-      updatedAt: new Date().toISOString(),
+      await updateDoc(ref, {
+        isArchived: false,
+        archivedAt: null,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   async deleteAssignment(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
-    await deleteDoc(ref);
+    await runInInjectionContext(this.injector, async () => {
+      const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+      await deleteDoc(ref);
+    });
   }
 }

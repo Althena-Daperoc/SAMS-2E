@@ -1,10 +1,11 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   addDoc,
   collection,
   doc,
   getDocs,
+  increment,
   onSnapshot,
   query,
   updateDoc,
@@ -20,30 +21,31 @@ import { NotificationService } from './notification.service';
   providedIn: 'root',
 })
 export class MessagesService {
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(Injector);
+  private readonly notificationService = inject(NotificationService);
+
   private readonly conversationsCollection = 'conversations';
   private readonly usersCollection = 'users';
 
-  constructor(
-    private firestore: Firestore,
-    private notificationService: NotificationService,
-  ) {}
-
   getUsers(): Observable<any[]> {
     return new Observable<any[]>((observer) => {
-      const usersRef = collection(this.firestore, this.usersCollection);
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const usersRef = collection(this.firestore, this.usersCollection);
 
-      const unsubscribe = onSnapshot(
-        usersRef,
-        (snapshot) => {
-          const users = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-          }));
+        return onSnapshot(
+          usersRef,
+          (snapshot) => {
+            const users = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            }));
 
-          observer.next(users);
-        },
-        (error) => observer.error(error),
-      );
+            observer.next(users);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
@@ -51,30 +53,40 @@ export class MessagesService {
 
   getConversationsByUser(userId: string): Observable<Conversation[]> {
     return new Observable<Conversation[]>((observer) => {
-      const conversationsRef = collection(this.firestore, this.conversationsCollection);
-      const conversationsQuery = query(
-        conversationsRef,
-        where('participantIds', 'array-contains', userId),
-      );
+      const cleanUserId = String(userId || '').trim();
 
-      const unsubscribe = onSnapshot(
-        conversationsQuery,
-        (snapshot) => {
-          const conversations = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-          })) as Conversation[];
+      if (!cleanUserId) {
+        observer.next([]);
+        return () => {};
+      }
 
-          conversations.sort((a, b) => {
-            const dateA = new Date(a.lastMessageAt || a.updatedAt || a.createdAt || 0).getTime();
-            const dateB = new Date(b.lastMessageAt || b.updatedAt || b.createdAt || 0).getTime();
-            return dateB - dateA;
-          });
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const conversationsRef = collection(this.firestore, this.conversationsCollection);
+        const conversationsQuery = query(
+          conversationsRef,
+          where('participantIds', 'array-contains', cleanUserId),
+        );
 
-          observer.next(conversations);
-        },
-        (error) => observer.error(error),
-      );
+        return onSnapshot(
+          conversationsQuery,
+          (snapshot) => {
+            const conversations = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            })) as Conversation[];
+
+            conversations.sort((a, b) => {
+              const dateA = new Date(a.lastMessageAt || a.updatedAt || a.createdAt || 0).getTime();
+              const dateB = new Date(b.lastMessageAt || b.updatedAt || b.createdAt || 0).getTime();
+
+              return dateB - dateA;
+            });
+
+            observer.next(conversations);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
@@ -82,29 +94,39 @@ export class MessagesService {
 
   getMessages(conversationId: string): Observable<ChatMessage[]> {
     return new Observable<ChatMessage[]>((observer) => {
-      const messagesRef = collection(
-        this.firestore,
-        `${this.conversationsCollection}/${conversationId}/messages`,
-      );
+      const cleanConversationId = String(conversationId || '').trim();
 
-      const unsubscribe = onSnapshot(
-        messagesRef,
-        (snapshot) => {
-          const messages = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...docSnap.data(),
-          })) as ChatMessage[];
+      if (!cleanConversationId) {
+        observer.next([]);
+        return () => {};
+      }
 
-          messages.sort((a, b) => {
-            const dateA = new Date(a.createdAt || 0).getTime();
-            const dateB = new Date(b.createdAt || 0).getTime();
-            return dateA - dateB;
-          });
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const messagesRef = collection(
+          this.firestore,
+          `${this.conversationsCollection}/${cleanConversationId}/messages`,
+        );
 
-          observer.next(messages);
-        },
-        (error) => observer.error(error),
-      );
+        return onSnapshot(
+          messagesRef,
+          (snapshot) => {
+            const messages = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...docSnap.data(),
+            })) as ChatMessage[];
+
+            messages.sort((a, b) => {
+              const dateA = new Date(a.createdAt || 0).getTime();
+              const dateB = new Date(b.createdAt || 0).getTime();
+
+              return dateA - dateB;
+            });
+
+            observer.next(messages);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
@@ -118,25 +140,38 @@ export class MessagesService {
     }
 
     const now = new Date().toISOString();
-    const conversationsRef = collection(this.firestore, this.conversationsCollection);
+    const participantIds = [currentUser.id, targetUser.id];
 
-    const docRef = await addDoc(conversationsRef, {
-      type: 'private',
-      name: `${currentUser.fullName} / ${targetUser.fullName}`,
-      participantIds: [currentUser.id, targetUser.id],
-      participantNames: [currentUser.fullName, targetUser.fullName],
-      participantRoles: [currentUser.role, targetUser.role],
-      sectionCode:
-        currentUser.sectionCode ||
-        currentUser.section ||
-        targetUser.sectionCode ||
-        targetUser.section ||
-        '',
-      createdBy: currentUser.id,
-      createdAt: now,
-      updatedAt: now,
-      lastMessage: '',
-      lastMessageAt: '',
+    const docRef = await runInInjectionContext(this.injector, () => {
+      const conversationsRef = collection(this.firestore, this.conversationsCollection);
+
+      return addDoc(conversationsRef, {
+        type: 'private',
+        name: `${currentUser.fullName} / ${targetUser.fullName}`,
+        participantIds,
+        participantNames: [currentUser.fullName, targetUser.fullName],
+        participantRoles: [currentUser.role, targetUser.role],
+        sectionCode:
+          currentUser.sectionCode ||
+          currentUser.section ||
+          targetUser.sectionCode ||
+          targetUser.section ||
+          '',
+        createdBy: currentUser.id,
+        createdAt: now,
+        updatedAt: now,
+        lastMessage: '',
+        lastMessageAt: '',
+        lastMessageSenderId: '',
+        lastMessageSenderName: '',
+        unreadCounts: this.createZeroCountMap(participantIds),
+        lastReadAtByUser: {
+          [currentUser.id]: now,
+        },
+        lastDeliveredAtByUser: {
+          [currentUser.id]: now,
+        },
+      });
     });
 
     return docRef.id;
@@ -155,20 +190,33 @@ export class MessagesService {
 
     const now = new Date().toISOString();
     const uniqueParticipants = this.uniqueUsers([currentUser, ...participants]);
-    const conversationsRef = collection(this.firestore, this.conversationsCollection);
+    const participantIds = uniqueParticipants.map((user) => user.id);
 
-    const docRef = await addDoc(conversationsRef, {
-      type: 'group',
-      name: cleanName,
-      participantIds: uniqueParticipants.map((user) => user.id),
-      participantNames: uniqueParticipants.map((user) => user.fullName),
-      participantRoles: uniqueParticipants.map((user) => user.role),
-      sectionCode: currentUser.sectionCode || currentUser.section || '',
-      createdBy: currentUser.id,
-      createdAt: now,
-      updatedAt: now,
-      lastMessage: '',
-      lastMessageAt: '',
+    const docRef = await runInInjectionContext(this.injector, () => {
+      const conversationsRef = collection(this.firestore, this.conversationsCollection);
+
+      return addDoc(conversationsRef, {
+        type: 'group',
+        name: cleanName,
+        participantIds,
+        participantNames: uniqueParticipants.map((user) => user.fullName),
+        participantRoles: uniqueParticipants.map((user) => user.role),
+        sectionCode: currentUser.sectionCode || currentUser.section || '',
+        createdBy: currentUser.id,
+        createdAt: now,
+        updatedAt: now,
+        lastMessage: '',
+        lastMessageAt: '',
+        lastMessageSenderId: '',
+        lastMessageSenderName: '',
+        unreadCounts: this.createZeroCountMap(participantIds),
+        lastReadAtByUser: {
+          [currentUser.id]: now,
+        },
+        lastDeliveredAtByUser: {
+          [currentUser.id]: now,
+        },
+      });
     });
 
     return docRef.id;
@@ -187,71 +235,143 @@ export class MessagesService {
     }
 
     const now = new Date().toISOString();
-
-    const messagesRef = collection(
-      this.firestore,
-      `${this.conversationsCollection}/${conversation.id}/messages`,
-    );
-
-    await addDoc(messagesRef, {
-      conversationId: conversation.id,
-      senderId: sender.id,
-      senderName: sender.fullName,
-      senderRole: sender.role,
-      text: cleanText,
-      type: 'text',
-      replyToMessageId: replyTo?.id || '',
-      replyToText: replyTo?.text || '',
-      replyToSenderName: replyTo?.senderName || '',
-      deliveredTo: [sender.id],
-      seenBy: [sender.id],
-      createdAt: now,
-      updatedAt: now,
-      isDeleted: false,
-    });
-
     const receiverIds = (conversation.participantIds || []).filter(
       (participantId) => participantId !== sender.id,
     );
 
-    await this.notificationService.notifyUsersByIds(receiverIds, {
-      title: 'New message',
-      message: `${sender.fullName || 'Someone'}: ${cleanText.substring(0, 60)}`,
-      type: 'message',
-      redirectUrl: '/messages',
-      excludeUserId: sender.id,
+    await runInInjectionContext(this.injector, () => {
+      const messagesRef = collection(
+        this.firestore,
+        `${this.conversationsCollection}/${conversation.id}/messages`,
+      );
+
+      return addDoc(messagesRef, {
+        conversationId: conversation.id,
+        senderId: sender.id,
+        senderName: sender.fullName,
+        senderRole: sender.role,
+        text: cleanText,
+        type: 'text',
+        replyToMessageId: replyTo?.id || '',
+        replyToText: replyTo?.text || '',
+        replyToSenderName: replyTo?.senderName || '',
+        recipientIds: receiverIds,
+        deliveredTo: [sender.id],
+        seenBy: [sender.id],
+        deliveredAtByUser: {
+          [sender.id]: now,
+        },
+        seenAtByUser: {
+          [sender.id]: now,
+        },
+        createdAt: now,
+        updatedAt: now,
+        isDeleted: false,
+      });
     });
 
-    const conversationDoc = doc(
-      this.firestore,
-      `${this.conversationsCollection}/${conversation.id}`,
+    if (receiverIds.length > 0) {
+      await this.notificationService.notifyUsersByIds(receiverIds, {
+        title: 'New message',
+        message: `${sender.fullName || 'Someone'}: ${cleanText.substring(0, 60)}`,
+        type: 'message',
+        redirectUrl: '/messages',
+        excludeUserId: sender.id,
+      });
+    }
+
+    const unreadUpdates = this.createUnreadIncrementUpdate(
+      conversation.participantIds || [],
+      sender.id,
     );
 
-    await updateDoc(conversationDoc, {
-      lastMessage: cleanText,
-      lastMessageAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, () => {
+      const conversationDoc = doc(
+        this.firestore,
+        `${this.conversationsCollection}/${conversation.id}`,
+      );
+
+      return updateDoc(conversationDoc, {
+        lastMessage: cleanText,
+        lastMessageAt: now,
+        lastMessageSenderId: sender.id,
+        lastMessageSenderName: sender.fullName || '',
+        updatedAt: now,
+        [`lastReadAtByUser.${sender.id}`]: now,
+        [`lastDeliveredAtByUser.${sender.id}`]: now,
+        [`unreadCounts.${sender.id}`]: 0,
+        ...unreadUpdates,
+      });
     });
   }
 
   async markMessagesAsDelivered(conversationId: string, userId: string): Promise<void> {
-    await this.updateMessageReceipt(conversationId, userId, 'deliveredTo');
+    const cleanConversationId = String(conversationId || '').trim();
+    const cleanUserId = String(userId || '').trim();
+
+    if (!cleanConversationId || !cleanUserId) return;
+
+    const now = new Date().toISOString();
+
+    await this.updateMessageReceipt(cleanConversationId, cleanUserId, 'deliveredTo', now);
+
+    await runInInjectionContext(this.injector, () => {
+      const conversationDoc = doc(
+        this.firestore,
+        `${this.conversationsCollection}/${cleanConversationId}`,
+      );
+
+      return updateDoc(conversationDoc, {
+        [`lastDeliveredAtByUser.${cleanUserId}`]: now,
+        updatedAt: now,
+      });
+    });
   }
 
   async markMessagesAsSeen(conversationId: string, userId: string): Promise<void> {
-    await this.updateMessageReceipt(conversationId, userId, 'seenBy');
+    const cleanConversationId = String(conversationId || '').trim();
+    const cleanUserId = String(userId || '').trim();
+
+    if (!cleanConversationId || !cleanUserId) return;
+
+    const now = new Date().toISOString();
+
+    await this.updateMessageReceipt(cleanConversationId, cleanUserId, 'seenBy', now);
+
+    await runInInjectionContext(this.injector, () => {
+      const conversationDoc = doc(
+        this.firestore,
+        `${this.conversationsCollection}/${cleanConversationId}`,
+      );
+
+      return updateDoc(conversationDoc, {
+        [`unreadCounts.${cleanUserId}`]: 0,
+        [`lastReadAtByUser.${cleanUserId}`]: now,
+        updatedAt: now,
+      });
+    });
   }
 
   async unsendMessage(conversationId: string, messageId: string): Promise<void> {
-    const messageDoc = doc(
-      this.firestore,
-      `${this.conversationsCollection}/${conversationId}/messages/${messageId}`,
-    );
+    const cleanConversationId = String(conversationId || '').trim();
+    const cleanMessageId = String(messageId || '').trim();
 
-    await updateDoc(messageDoc, {
-      text: 'This message was unsent.',
-      isDeleted: true,
-      updatedAt: new Date().toISOString(),
+    if (!cleanConversationId || !cleanMessageId) return;
+
+    const now = new Date().toISOString();
+
+    await runInInjectionContext(this.injector, () => {
+      const messageDoc = doc(
+        this.firestore,
+        `${this.conversationsCollection}/${cleanConversationId}/messages/${cleanMessageId}`,
+      );
+
+      return updateDoc(messageDoc, {
+        text: 'This message was unsent.',
+        isDeleted: true,
+        deletedAt: now,
+        updatedAt: now,
+      });
     });
   }
 
@@ -259,13 +379,16 @@ export class MessagesService {
     conversationId: string,
     userId: string,
     field: 'deliveredTo' | 'seenBy',
+    now: string,
   ): Promise<void> {
-    const messagesRef = collection(
-      this.firestore,
-      `${this.conversationsCollection}/${conversationId}/messages`,
-    );
+    const snapshot = await runInInjectionContext(this.injector, () => {
+      const messagesRef = collection(
+        this.firestore,
+        `${this.conversationsCollection}/${conversationId}/messages`,
+      );
 
-    const snapshot = await getDocs(messagesRef);
+      return getDocs(messagesRef);
+    });
 
     const updates = snapshot.docs.map(async (docSnap) => {
       const data = docSnap.data() as ChatMessage;
@@ -280,14 +403,19 @@ export class MessagesService {
         return;
       }
 
-      const messageDoc = doc(
-        this.firestore,
-        `${this.conversationsCollection}/${conversationId}/messages/${docSnap.id}`,
-      );
+      const timestampField = field === 'deliveredTo' ? 'deliveredAtByUser' : 'seenAtByUser';
 
-      await updateDoc(messageDoc, {
-        [field]: [...currentList, userId],
-        updatedAt: new Date().toISOString(),
+      await runInInjectionContext(this.injector, () => {
+        const messageDoc = doc(
+          this.firestore,
+          `${this.conversationsCollection}/${conversationId}/messages/${docSnap.id}`,
+        );
+
+        return updateDoc(messageDoc, {
+          [field]: [...currentList, userId],
+          [`${timestampField}.${userId}`]: now,
+          updatedAt: now,
+        });
       });
     });
 
@@ -298,21 +426,54 @@ export class MessagesService {
     currentUserId: string,
     targetUserId: string,
   ): Promise<string | null> {
-    const conversationsRef = collection(this.firestore, this.conversationsCollection);
-    const conversationsQuery = query(
-      conversationsRef,
-      where('type', '==', 'private'),
-      where('participantIds', 'array-contains', currentUserId),
-    );
+    const snapshot = await runInInjectionContext(this.injector, () => {
+      const conversationsRef = collection(this.firestore, this.conversationsCollection);
+      const conversationsQuery = query(
+        conversationsRef,
+        where('type', '==', 'private'),
+        where('participantIds', 'array-contains', currentUserId),
+      );
 
-    const snapshot = await getDocs(conversationsQuery);
+      return getDocs(conversationsQuery);
+    });
 
     const existing = snapshot.docs.find((docSnap) => {
       const data = docSnap.data() as Conversation;
-      return data.participantIds.includes(targetUserId);
+      const participantIds = data.participantIds || [];
+
+      return participantIds.length === 2 && participantIds.includes(targetUserId);
     });
 
     return existing?.id || null;
+  }
+
+  private createZeroCountMap(userIds: string[]): Record<string, number> {
+    const map: Record<string, number> = {};
+
+    userIds.forEach((userId) => {
+      if (userId) {
+        map[userId] = 0;
+      }
+    });
+
+    return map;
+  }
+
+  private createUnreadIncrementUpdate(
+    participantIds: string[],
+    senderId: string,
+  ): Record<string, any> {
+    const updates: Record<string, any> = {};
+
+    participantIds.forEach((participantId) => {
+      if (!participantId || participantId === senderId) {
+        return;
+      }
+
+      updates[`unreadCounts.${participantId}`] = increment(1);
+    });
+
+    return updates;
   }
 
   private uniqueUsers(users: any[]): any[] {

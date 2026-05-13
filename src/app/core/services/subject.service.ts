@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, Injector, inject, runInInjectionContext } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -16,84 +16,128 @@ import { Subject } from '../../models/subject.model';
   providedIn: 'root',
 })
 export class SubjectService {
+  private readonly firestore = inject(Firestore);
+  private readonly injector = inject(Injector);
   private readonly collectionName = 'subjects';
 
-  constructor(private firestore: Firestore) {}
-
   getSubjects(): Observable<Subject[]> {
-    return new Observable((observer) => {
-      const ref = collection(this.firestore, this.collectionName);
+    return new Observable<Subject[]>((observer) => {
+      const unsubscribe = runInInjectionContext(this.injector, () => {
+        const subjectsRef = collection(this.firestore, this.collectionName);
 
-      const unsubscribe = onSnapshot(
-        ref,
-        (snapshot) => {
-          const subjects: Subject[] = snapshot.docs.map((docSnap) => ({
-            id: docSnap.id,
-            ...(docSnap.data() as Subject),
-          }));
+        return onSnapshot(
+          subjectsRef,
+          (snapshot) => {
+            const subjects: Subject[] = snapshot.docs.map((docSnap) => ({
+              id: docSnap.id,
+              ...(docSnap.data() as Subject),
+            }));
 
-          subjects.sort((a, b) => (a.subjectCode || '').localeCompare(b.subjectCode || ''));
+            subjects.sort((a, b) => (a.subjectCode || '').localeCompare(b.subjectCode || ''));
 
-          observer.next(subjects);
-        },
-        (error) => observer.error(error),
-      );
+            observer.next(subjects);
+          },
+          (error) => observer.error(error),
+        );
+      });
 
       return () => unsubscribe();
     });
   }
 
   async addSubject(data: Subject): Promise<void> {
-    const ref = collection(this.firestore, this.collectionName);
     const now = new Date().toISOString();
 
-    await addDoc(ref, {
-      ...data,
-      isArchived: false,
-      archivedAt: null,
-      createdAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const subjectsRef = collection(this.firestore, this.collectionName);
+
+      await addDoc(subjectsRef, {
+        ...data,
+        isArchived: false,
+        archivedAt: null,
+        createdAt: data.createdAt || now,
+        updatedAt: now,
+      });
     });
   }
 
   async importSubjects(records: Subject[]): Promise<void> {
-    for (const subject of records) {
-      await this.addSubject(subject);
-    }
+    const now = new Date().toISOString();
+
+    await runInInjectionContext(this.injector, async () => {
+      const subjectsRef = collection(this.firestore, this.collectionName);
+
+      await Promise.all(
+        records.map((subject) =>
+          addDoc(subjectsRef, {
+            ...subject,
+            isArchived: false,
+            archivedAt: null,
+            createdAt: subject.createdAt || now,
+            updatedAt: now,
+          }),
+        ),
+      );
+    });
   }
 
   async updateSubject(id: string, data: Partial<Subject>): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
 
-    await updateDoc(ref, {
-      ...data,
-      updatedAt: new Date().toISOString(),
+    if (!cleanId) return;
+
+    await runInInjectionContext(this.injector, async () => {
+      const subjectDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      await updateDoc(subjectDoc, {
+        ...data,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   async archiveSubject(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
+
+    if (!cleanId) return;
+
     const now = new Date().toISOString();
 
-    await updateDoc(ref, {
-      isArchived: true,
-      archivedAt: now,
-      updatedAt: now,
+    await runInInjectionContext(this.injector, async () => {
+      const subjectDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      await updateDoc(subjectDoc, {
+        isArchived: true,
+        archivedAt: now,
+        updatedAt: now,
+      });
     });
   }
 
   async restoreSubject(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
+    const cleanId = String(id || '').trim();
 
-    await updateDoc(ref, {
-      isArchived: false,
-      archivedAt: null,
-      updatedAt: new Date().toISOString(),
+    if (!cleanId) return;
+
+    await runInInjectionContext(this.injector, async () => {
+      const subjectDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+
+      await updateDoc(subjectDoc, {
+        isArchived: false,
+        archivedAt: null,
+        updatedAt: new Date().toISOString(),
+      });
     });
   }
 
   async deleteSubject(id: string): Promise<void> {
-    const ref = doc(this.firestore, `${this.collectionName}/${id}`);
-    await deleteDoc(ref);
+    const cleanId = String(id || '').trim();
+
+    if (!cleanId) return;
+
+    await runInInjectionContext(this.injector, async () => {
+      const subjectDoc = doc(this.firestore, `${this.collectionName}/${cleanId}`);
+      await deleteDoc(subjectDoc);
+    });
   }
 }

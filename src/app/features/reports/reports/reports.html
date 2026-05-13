@@ -1,359 +1,567 @@
 <section class="reports-page">
-  <div class="hero-card">
-    <div>
-      <span class="eyebrow">Faculty Reports</span>
-      <h1>Attendance Reports</h1>
-      <p>
-        Review attendance records, move redundant records to Trash, restore records, and monitor
-        students with high absences.
-      </p>
+  <div class="reports-hero">
+    <div class="hero-copy">
+      <span class="eyebrow">{{ reportEyebrow }}</span>
+      <h1>{{ reportTitle }}</h1>
+      <p>{{ reportSubtitle }}</p>
+
+      <div class="scope-chip">
+        <i [class]="isAdminReport ? 'pi pi-shield' : 'pi pi-id-card'"></i>
+        <span>{{ reportScopeLabel }}</span>
+      </div>
     </div>
 
-    <div class="hero-stats">
-      <div class="stat-card">
-        <span>Active Records</span>
-        <strong>{{ totalActiveRecords }}</strong>
-      </div>
+    <div class="hero-actions">
+      <button class="ghost-btn" type="button" (click)="generateReport()" [disabled]="isLoading">
+        <i class="pi pi-refresh"></i>
+        <span>Refresh</span>
+      </button>
 
-      <div class="stat-card danger">
-        <span>Absences</span>
-        <strong>{{ absentCount }}</strong>
-      </div>
+      <button class="export-btn" type="button" (click)="exportPdf()" [disabled]="!canExportReports">
+        <i class="pi pi-file-pdf"></i>
+        <span>Export PDF</span>
+      </button>
 
-      <div class="stat-card warning">
-        <span>Late</span>
-        <strong>{{ lateCount }}</strong>
-      </div>
+      <button
+        class="export-btn excel"
+        type="button"
+        (click)="exportExcel()"
+        [disabled]="!canExportReports"
+      >
+        <i class="pi pi-file-excel"></i>
+        <span>Export Excel</span>
+      </button>
+    </div>
+  </div>
 
-      <div class="stat-card trash">
-        <span>Trash</span>
-        <strong>{{ totalTrashRecords }}</strong>
+  <div class="summary-grid">
+    <article class="summary-card tone-primary">
+      <span class="summary-icon">
+        <i class="pi pi-users"></i>
+      </span>
+      <span class="summary-label">Students Covered</span>
+      <strong>{{ totalStudents }}</strong>
+    </article>
+
+    <article class="summary-card tone-info">
+      <span class="summary-icon">
+        <i class="pi pi-calendar"></i>
+      </span>
+      <span class="summary-label">Sessions</span>
+      <strong>{{ totalAttendanceSessions }}</strong>
+    </article>
+
+    <article class="summary-card tone-success">
+      <span class="summary-icon">
+        <i class="pi pi-chart-line"></i>
+      </span>
+      <span class="summary-label">Attendance Rate</span>
+      <strong>{{ overallAttendanceRate }}%</strong>
+    </article>
+
+    <article class="summary-card tone-danger">
+      <span class="summary-icon">
+        <i class="pi pi-user-minus"></i>
+      </span>
+      <span class="summary-label">Needs Monitoring</span>
+      <strong>{{ concernCount }}</strong>
+    </article>
+  </div>
+
+  <div class="quality-card" [ngClass]="attendanceQualityClass">
+    <div class="quality-left">
+      <span class="quality-icon">
+        <i
+          [class]="
+            attendanceQualityClass === 'excellent'
+              ? 'pi pi-check-circle'
+              : attendanceQualityClass === 'good'
+                ? 'pi pi-thumbs-up'
+                : attendanceQualityClass === 'warning'
+                  ? 'pi pi-exclamation-triangle'
+                  : 'pi pi-times-circle'
+          "
+        ></i>
+      </span>
+
+      <div>
+        <span class="eyebrow">Report Quality</span>
+        <h2>{{ attendanceQualityLabel }}</h2>
+        <p>
+          {{
+            isAdminReport
+              ? 'This rating summarizes the selected system-wide attendance records.'
+              : 'This rating summarizes your selected faculty attendance records.'
+          }}
+        </p>
       </div>
+    </div>
+
+    <div class="quality-score">
+      <strong>{{ overallAttendanceRate }}%</strong>
+      <span>attendance performance</span>
     </div>
   </div>
 
   <div class="filters-card">
-    <div class="filter-group search">
-      <label>Search</label>
-      <input
-        type="text"
-        [(ngModel)]="searchTerm"
-        placeholder="Search student, subject, section, status..."
-      />
-    </div>
-
-    <div class="filter-group">
-      <label>Status</label>
-      <select [(ngModel)]="statusFilter">
-        <option value="all">All Status</option>
-        <option value="present">Present</option>
-        <option value="late">Late</option>
-        <option value="absent">Absent</option>
-        <option value="excused">Excused</option>
-      </select>
-    </div>
-
-    <div class="filter-group">
-      <label>Subject</label>
-      <select [(ngModel)]="subjectFilter">
-        <option value="all">All Subjects</option>
-        <option *ngFor="let subject of availableSubjects" [value]="subject">
-          {{ subject }}
-        </option>
-      </select>
-    </div>
-
-    <div class="filter-group">
-      <label>Section</label>
-      <select [(ngModel)]="sectionFilter">
-        <option value="all">All Sections</option>
-        <option *ngFor="let section of availableSections" [value]="section">
-          {{ section }}
-        </option>
-      </select>
-    </div>
-
-    <div class="filter-group">
-      <label>Month</label>
-      <select [(ngModel)]="monthFilter">
-        <option value="all">All Months</option>
-        <option value="1">January</option>
-        <option value="2">February</option>
-        <option value="3">March</option>
-        <option value="4">April</option>
-        <option value="5">May</option>
-        <option value="6">June</option>
-        <option value="7">July</option>
-        <option value="8">August</option>
-        <option value="9">September</option>
-        <option value="10">October</option>
-        <option value="11">November</option>
-        <option value="12">December</option>
-      </select>
-    </div>
-
-    <div class="filter-group">
-      <label>Year</label>
-      <select [(ngModel)]="yearFilter">
-        <option value="all">All Years</option>
-        <option *ngFor="let year of availableYears" [value]="year">
-          {{ year }}
-        </option>
-      </select>
-    </div>
-
-    <button type="button" class="btn ghost" (click)="resetFilters()">Reset</button>
-  </div>
-
-  <div class="monitoring-card">
-    <div class="section-heading">
+    <div class="filters-header">
       <div>
-        <span class="eyebrow">Monitoring</span>
-        <h2>Students Needing Monitoring</h2>
-        <p>Students with the highest number of absences based on the current filters.</p>
+        <span class="eyebrow">Report Filters</span>
+        <h2>Control Report View</h2>
       </div>
 
-      <div class="monitoring-highlight" *ngIf="topMonitoringStudent">
-        <span>Highest Absences</span>
-        <strong>{{ topMonitoringStudent.studentName }}</strong>
-        <small>
-          {{ topMonitoringStudent.absentCount }} absence(s) • {{ topMonitoringStudent.subject }}
-        </small>
-      </div>
-    </div>
-
-    <div class="monitoring-list" *ngIf="studentsNeedingMonitoring.length > 0; else noMonitoring">
-      <div
-        class="monitoring-item"
-        *ngFor="let student of studentsNeedingMonitoring; let i = index"
-        [class.critical]="student.absentCount >= 3"
+      <button
+        class="clear-btn"
+        type="button"
+        (click)="resetFilters()"
+        [disabled]="!hasActiveFilters"
       >
-        <div class="rank">{{ i + 1 }}</div>
-
-        <div class="monitoring-copy">
-          <strong>{{ student.studentName }}</strong>
-          <span>{{ student.studentId }} • {{ student.subject }} • {{ student.section }}</span>
-        </div>
-
-        <div class="monitoring-counts">
-          <span class="absence">{{ student.absentCount }} absent</span>
-          <span>{{ student.lateCount }} late</span>
-          <span>{{ student.presentCount }} present</span>
-        </div>
-
-        <div class="monitoring-note">
-          <strong *ngIf="student.absentCount >= 3">Needs action</strong>
-          <strong *ngIf="student.absentCount < 3">Monitor</strong>
-          <small
-            >Latest absence:
-            {{ student.latestAbsence ? formatDateValue(student.latestAbsence) : 'N/A' }}</small
-          >
-        </div>
-      </div>
+        <i class="pi pi-filter-slash"></i>
+        <span>Reset</span>
+      </button>
     </div>
 
-    <ng-template #noMonitoring>
-      <div class="empty-state small">
-        <strong>No students currently need monitoring</strong>
-        <p>No absence-heavy student records were found using the current filters.</p>
+    <div class="filters-grid">
+      <div class="filter-group">
+        <label for="reportSearch">Search</label>
+        <div class="search-box">
+          <i class="pi pi-search"></i>
+          <input
+            id="reportSearch"
+            type="text"
+            name="searchTerm"
+            [(ngModel)]="searchTerm"
+            (input)="applyFilters()"
+            placeholder="Search student, subject, section, status..."
+            autocomplete="off"
+          />
+
+          <button
+            *ngIf="searchTerm"
+            type="button"
+            class="clear-search"
+            (click)="clearSearch()"
+            aria-label="Clear search"
+          >
+            <i class="pi pi-times"></i>
+          </button>
+        </div>
       </div>
-    </ng-template>
+
+      <div class="filter-group">
+        <label for="selectedMonth">Month</label>
+        <input
+          id="selectedMonth"
+          type="month"
+          name="selectedMonth"
+          [(ngModel)]="selectedMonth"
+          (change)="onMonthChange()"
+        />
+      </div>
+
+      <div class="filter-group">
+        <label for="selectedSubject">Subject</label>
+        <select
+          id="selectedSubject"
+          name="selectedSubject"
+          [(ngModel)]="selectedSubject"
+          (change)="applyFilters()"
+        >
+          <option value="">All Subjects</option>
+          <option *ngFor="let subject of subjects" [value]="subject">{{ subject }}</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="selectedSection">Section</label>
+        <select
+          id="selectedSection"
+          name="selectedSection"
+          [(ngModel)]="selectedSection"
+          (change)="applyFilters()"
+        >
+          <option value="">All Sections</option>
+          <option *ngFor="let section of sections" [value]="section">{{ section }}</option>
+        </select>
+      </div>
+
+      <div class="filter-group" *ngIf="isAdminReport">
+        <label for="selectedTeacher">Faculty</label>
+        <select
+          id="selectedTeacher"
+          name="selectedTeacher"
+          [(ngModel)]="selectedTeacher"
+          (change)="applyFilters()"
+        >
+          <option value="">All Faculty</option>
+          <option *ngFor="let teacher of teachers" [value]="teacher">{{ teacher }}</option>
+        </select>
+      </div>
+
+      <div class="filter-actions">
+        <button type="button" class="month-btn" (click)="setCurrentMonth()">
+          <i class="pi pi-calendar-plus"></i>
+          <span>Current Month</span>
+        </button>
+
+        <button type="button" class="month-btn secondary" (click)="showAllMonths()">
+          <i class="pi pi-calendar"></i>
+          <span>All Months</span>
+        </button>
+      </div>
+    </div>
   </div>
 
-  <div class="records-card">
-    <div class="records-toolbar">
-      <div class="tabs">
-        <button
-          type="button"
-          [class.active]="activeTab === 'records'"
-          (click)="setActiveTab('records')"
-        >
-          Active Records
-          <span>{{ totalActiveRecords }}</span>
-        </button>
+  <div class="error-state" *ngIf="errorMessage">
+    <i class="pi pi-exclamation-triangle"></i>
+    <span>{{ errorMessage }}</span>
+  </div>
 
-        <button
-          type="button"
-          [class.active]="activeTab === 'trash'"
-          (click)="setActiveTab('trash')"
-        >
-          Trash
-          <span>{{ totalTrashRecords }}</span>
-        </button>
+  <div class="loading-state" *ngIf="isLoading">
+    <div class="loader"></div>
+    <strong>Loading report data</strong>
+    <p>Please wait while attendance records are being analyzed.</p>
+  </div>
+
+  <ng-container *ngIf="!isLoading">
+    <div class="empty-state" *ngIf="filteredRecords.length === 0">
+      <span class="empty-icon">
+        <i class="pi pi-database"></i>
+      </span>
+      <strong>No report records found</strong>
+      <p>
+        {{
+          isAdminReport
+            ? 'No system-wide attendance records match the current filters.'
+            : 'No attendance records under your faculty scope match the current filters.'
+        }}
+      </p>
+
+      <button type="button" class="empty-secondary-btn" (click)="resetFilters()">
+        <i class="pi pi-refresh"></i>
+        <span>Reset Filters</span>
+      </button>
+    </div>
+
+    <div class="report-content" *ngIf="filteredRecords.length > 0">
+      <div class="insights-card">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Smart Report</span>
+            <h2>{{ isAdminReport ? 'System Insights' : 'Faculty Insights' }}</h2>
+          </div>
+        </div>
+
+        <div class="insights-grid">
+          <article
+            class="insight-item"
+            *ngFor="let insight of smartInsights"
+            [class]="insight.tone"
+          >
+            <span class="insight-icon">
+              <i [class]="insight.icon"></i>
+            </span>
+
+            <div>
+              <strong>{{ insight.title }}</strong>
+              <p>{{ insight.message }}</p>
+            </div>
+          </article>
+        </div>
       </div>
 
-      <div class="actions">
-        <button type="button" class="btn ghost" (click)="exportCsv()" [disabled]="isProcessing">
-          Export CSV
-        </button>
+      <div class="analytics-grid">
+        <article class="chart-card">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Status</span>
+              <h2>Attendance Distribution</h2>
+            </div>
+          </div>
 
-        <button type="button" class="btn ghost" (click)="printReport()" [disabled]="isProcessing">
-          Print / PDF
-        </button>
+          <div class="donut-row">
+            <div class="donut-chart">
+              <span>{{ overallAttendanceRate }}%</span>
+            </div>
 
-        <ng-container *ngIf="activeTab === 'records'">
-          <button
-            type="button"
-            class="btn danger-light"
-            (click)="moveSelectedToTrash()"
-            [disabled]="isProcessing || !hasSelectedRecords"
-          >
-            Move Selected
-          </button>
+            <div class="chart-list">
+              <div class="chart-row" *ngFor="let row of statusChartRows">
+                <div class="chart-row-top">
+                  <span>
+                    <i [class]="'legend-dot ' + row.className"></i>
+                    {{ row.label }}
+                  </span>
+                  <strong>{{ row.value }} records</strong>
+                </div>
 
-          <button
-            type="button"
-            class="btn danger"
-            (click)="moveFilteredToTrash()"
-            [disabled]="isProcessing || filteredRecords.length === 0"
-          >
-            Move Filtered to Trash
-          </button>
-        </ng-container>
+                <div class="bar-track">
+                  <div
+                    class="bar-fill"
+                    [class]="row.className"
+                    [style.width.%]="row.percentage"
+                  ></div>
+                </div>
 
-        <ng-container *ngIf="activeTab === 'trash'">
-          <button
-            type="button"
-            class="btn primary"
-            (click)="restoreSelectedRecords()"
-            [disabled]="isProcessing || !hasSelectedRecords"
-          >
-            Restore Selected
-          </button>
+                <small>{{ row.percentage }}%</small>
+              </div>
+            </div>
+          </div>
+        </article>
 
-          <button
-            type="button"
-            class="btn danger-light"
-            (click)="permanentlyDeleteSelectedRecords()"
-            [disabled]="isProcessing || !hasSelectedRecords"
-          >
-            Delete Selected
-          </button>
+        <article class="chart-card">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Performance</span>
+              <h2>
+                {{ isAdminReport ? 'Classes Needing Attention' : 'My Classes Needing Attention' }}
+              </h2>
+            </div>
+          </div>
 
-          <button
-            type="button"
-            class="btn danger"
-            (click)="emptyTrash()"
-            [disabled]="isProcessing || filteredRecords.length === 0"
-          >
-            Empty Trash
-          </button>
-        </ng-container>
+          <div class="ranking-list" *ngIf="classPerformanceRows.length > 0">
+            <div class="rank-row" *ngFor="let row of classPerformanceRows">
+              <div class="rank-top">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.value }}%</strong>
+              </div>
+
+              <div class="bar-track">
+                <div
+                  class="bar-fill"
+                  [class]="row.className"
+                  [style.width.%]="row.percentage"
+                ></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mini-empty" *ngIf="classPerformanceRows.length === 0">
+            <i class="pi pi-chart-bar"></i>
+            <span>No class performance data available.</span>
+          </div>
+        </article>
+
+        <article class="chart-card" *ngIf="isAdminReport">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Admin View</span>
+              <h2>Faculty Attendance Coverage</h2>
+            </div>
+          </div>
+
+          <div class="ranking-list" *ngIf="facultyWorkloadRows.length > 0">
+            <div class="rank-row" *ngFor="let row of facultyWorkloadRows">
+              <div class="rank-top">
+                <span>{{ row.label }}</span>
+                <strong>{{ row.value }} records</strong>
+              </div>
+
+              <div class="bar-track">
+                <div class="bar-fill info" [style.width.%]="row.percentage"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mini-empty" *ngIf="facultyWorkloadRows.length === 0">
+            <i class="pi pi-id-card"></i>
+            <span>No faculty coverage data available.</span>
+          </div>
+        </article>
+
+        <article class="chart-card">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">Trend</span>
+              <h2>Monthly Attendance Trend</h2>
+            </div>
+          </div>
+
+          <div class="trend-list" *ngIf="monthlyTrendRows.length > 0">
+            <div class="trend-row" *ngFor="let row of monthlyTrendRows">
+              <div class="trend-label">
+                <strong>{{ row.label }}</strong>
+                <span>{{ row.totalRecords }} records</span>
+              </div>
+
+              <div class="bar-track">
+                <div class="bar-fill good" [style.width.%]="row.attendanceRate"></div>
+              </div>
+
+              <strong>{{ row.attendanceRate }}%</strong>
+            </div>
+          </div>
+
+          <div class="mini-empty" *ngIf="monthlyTrendRows.length === 0">
+            <i class="pi pi-calendar"></i>
+            <span>No trend data available.</span>
+          </div>
+        </article>
       </div>
-    </div>
 
-    <div class="records-summary">
-      <strong>
-        {{ activeTab === 'records' ? 'My Student Attendance Records' : 'Trash Records' }}
-      </strong>
-      <span>{{ totalFilteredRecords }} record(s) based on current filters.</span>
-    </div>
+      <div class="table-card">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Summary</span>
+            <h2>{{ isAdminReport ? 'System Attendance Summary' : 'My Attendance Summary' }}</h2>
+          </div>
 
-    <div class="table-wrap" *ngIf="!isLoading && filteredRecords.length > 0; else recordsEmpty">
-      <table>
-        <thead>
-          <tr>
-            <th class="check-col">
-              <input
-                type="checkbox"
-                [checked]="allVisibleSelected"
-                (change)="toggleSelectAllVisible($any($event.target).checked)"
-              />
-            </th>
-            <th>No.</th>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Student ID</th>
-            <th>Student Name</th>
-            <th>Subject</th>
-            <th>Section</th>
-            <th>Status</th>
-            <th>Method</th>
-            <th>Remarks</th>
-            <th class="action-col">Action</th>
-          </tr>
-        </thead>
+          <span class="table-count">{{ filteredAttendanceSummary.length }} class group(s)</span>
+        </div>
 
-        <tbody>
-          <tr *ngFor="let record of filteredRecords; let i = index">
-            <td class="check-col">
-              <input
-                type="checkbox"
-                [checked]="isRecordSelected(record.id)"
-                (change)="toggleSelectRecord(record.id, $any($event.target).checked)"
-              />
-            </td>
+        <div class="table-wrapper">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Section</th>
+                <th *ngIf="isAdminReport">Faculty</th>
+                <th>Students</th>
+                <th>Sessions</th>
+                <th>Present</th>
+                <th>Late</th>
+                <th>Absent</th>
+                <th>Excused</th>
+                <th>Rate</th>
+              </tr>
+            </thead>
 
-            <td>{{ i + 1 }}</td>
-            <td>{{ formatDate(record) }}</td>
-            <td>{{ formatTime(record) }}</td>
-            <td>{{ record.studentId || 'N/A' }}</td>
-            <td>{{ record.studentName || 'N/A' }}</td>
-            <td>{{ getSubjectLabel(record) }}</td>
-            <td>{{ getSectionLabel(record) }}</td>
-            <td>
-              <span class="status-pill" [ngClass]="statusClass(record.status)">
-                {{ record.status || 'N/A' }}
-              </span>
-            </td>
-            <td>{{ formatMethod(record.method || '') }}</td>
-            <td class="remarks">{{ record.remarks || '—' }}</td>
+            <tbody>
+              <tr *ngFor="let row of filteredAttendanceSummary">
+                <td>
+                  <strong>{{ row.subject }}</strong>
+                </td>
+                <td>{{ row.section }}</td>
+                <td *ngIf="isAdminReport">{{ row.teacher }}</td>
+                <td>{{ row.totalStudents }}</td>
+                <td>{{ row.totalSessions }}</td>
+                <td>{{ row.presentCount }}</td>
+                <td>{{ row.lateCount }}</td>
+                <td>{{ row.absentCount }}</td>
+                <td>{{ row.excusedCount }}</td>
+                <td>
+                  <span class="rate-pill" [class]="getRateClass(row.presentRate)">
+                    {{ row.presentRate }}%
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
-            <td class="row-actions">
-              <button
-                *ngIf="activeTab === 'records'"
-                type="button"
-                class="icon-action danger"
-                title="Move to Trash"
-                (click)="moveOneToTrash(record)"
-                [disabled]="isProcessing"
-              >
-                Trash
-              </button>
+      <div class="table-card">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Monitoring</span>
+            <h2>Students Needing Monitoring</h2>
+          </div>
 
-              <button
-                *ngIf="activeTab === 'trash'"
-                type="button"
-                class="icon-action primary"
-                title="Restore"
-                (click)="restoreOneRecord(record)"
-                [disabled]="isProcessing"
-              >
-                Restore
-              </button>
+          <span class="table-count">{{ filteredStudentRisks.length }} student(s)</span>
+        </div>
 
-              <button
-                *ngIf="activeTab === 'trash'"
-                type="button"
-                class="icon-action danger"
-                title="Delete permanently"
-                (click)="permanentlyDeleteOneRecord(record)"
-                [disabled]="isProcessing"
-              >
-                Delete
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+        <div class="mini-empty" *ngIf="filteredStudentRisks.length === 0">
+          <i class="pi pi-check-circle"></i>
+          <span>No student risk records found in the selected report view.</span>
+        </div>
 
-    <ng-template #recordsEmpty>
-      <div class="empty-state" *ngIf="!isLoading">
-        <strong>No records found</strong>
-        <p>
-          {{
-            activeTab === 'records'
-              ? 'No active attendance records match the current filters.'
-              : 'No trashed attendance records match the current filters.'
-          }}
+        <div class="table-wrapper" *ngIf="filteredStudentRisks.length > 0">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Student No.</th>
+                <th>Section</th>
+                <th>Subject</th>
+                <th *ngIf="isAdminReport">Faculty</th>
+                <th>Absences</th>
+                <th>Lates</th>
+                <th>Excused</th>
+                <th>Present</th>
+                <th>Total</th>
+                <th>Rate</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr *ngFor="let row of filteredStudentRisks">
+                <td>
+                  <strong>{{ row.studentName }}</strong>
+                </td>
+                <td>{{ row.studentNo }}</td>
+                <td>{{ row.section }}</td>
+                <td>{{ row.subject }}</td>
+                <td *ngIf="isAdminReport">{{ row.teacher }}</td>
+                <td>
+                  <span class="danger-text">{{ row.absences }}</span>
+                </td>
+                <td>{{ row.lates }}</td>
+                <td>{{ row.excused }}</td>
+                <td>{{ row.present }}</td>
+                <td>{{ row.totalRecords }}</td>
+                <td>
+                  <span class="rate-pill" [class]="getRateClass(row.attendanceRate)">
+                    {{ row.attendanceRate }}%
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">Source Records</span>
+            <h2>Recent Attendance Logs</h2>
+          </div>
+
+          <span class="table-count">
+            Showing {{ (filteredRecords | slice: 0 : 25).length }} of {{ filteredRecords.length }}
+          </span>
+        </div>
+
+        <div class="table-wrapper">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Student</th>
+                <th>Student No.</th>
+                <th>Subject</th>
+                <th>Section</th>
+                <th *ngIf="isAdminReport">Faculty</th>
+                <th>Status</th>
+                <th>Method</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr *ngFor="let record of filteredRecords | slice: 0 : 25">
+                <td>{{ getRecordDateLabel(record) }}</td>
+                <td>
+                  <strong>{{ getRecordStudentName(record) }}</strong>
+                </td>
+                <td>{{ getRecordStudentNumber(record) }}</td>
+                <td>{{ getSubjectLabel(record) }}</td>
+                <td>{{ getSectionLabel(record) }}</td>
+                <td *ngIf="isAdminReport">{{ getTeacherLabel(record) }}</td>
+                <td>
+                  <span class="status-pill" [class]="record.status || 'unknown'">
+                    {{ record.status || 'N/A' }}
+                  </span>
+                </td>
+                <td>{{ getMethodLabel(record.method) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <p class="table-note" *ngIf="filteredRecords.length > 25">
+          Only the latest 25 records are shown here for readability. Export the report to include
+          the full filtered result.
         </p>
       </div>
-
-      <div class="empty-state" *ngIf="isLoading">
-        <strong>Loading reports</strong>
-        <p>Please wait while attendance records are loaded.</p>
-      </div>
-    </ng-template>
-  </div>
+    </div>
+  </ng-container>
 </section>
